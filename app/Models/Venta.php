@@ -30,7 +30,8 @@ class Venta extends Model
         'nombre_xml',
         'descuento',
         'id_vendedor',
-        'referencia'
+        'referencia',
+        'motivo_cancelacion'
     ];
 
     public function cliente()

@@ -30,4 +30,19 @@ class InventarioAjuste extends Model
     {
         return $this->hasMany(InventarioDetalle::class, 'id_inventario', 'id_ajuste');
     }
+
+    public function usuario()
+    {
+        return $this->belongsTo(User::class, 'id_usuario', 'id');
+    }
+
+    public function almacen()
+    {
+        return $this->belongsTo(Almacen::class, 'id_almacen', 'clave');
+    }
+
+    public function sucursal()
+    {
+        return $this->belongsTo(Sucursal::class, 'id_sucursal', 'id');
+    }
 }

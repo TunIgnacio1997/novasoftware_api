@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Existencia;
+use App\Models\Producto;
+use Exception;
 
 class InventoryService
 {
@@ -59,5 +61,90 @@ class InventoryService
             'anterior' => $anterior,
             'nuevo' => $existencia->cantidad
         ];
+    }
+
+    public function aplicarDevolucion(
+    string $tipo,
+    int $idProducto,
+    int $idAlmacen,
+    float $cantidad
+    ): array {
+
+        $existencia = Existencia::lockForUpdate()
+            ->where([
+                'id_producto' => $idProducto,
+                'id_almacen' => $idAlmacen
+            ])
+            ->firstOrFail();
+
+        $anterior = $existencia->cantidad;
+
+        if ($tipo === 'COMPRA') {
+
+            if ($existencia->cantidad < $cantidad) {
+                throw new Exception(
+                    'Existencia insuficiente para devolución'
+                );
+            }
+
+            $existencia->decrement(
+                'cantidad',
+                $cantidad
+            );
+
+        } else {
+
+            $existencia->increment(
+                'cantidad',
+                $cantidad
+            );
+        }
+
+        $existencia->refresh();
+
+        return [
+            'anterior' => $anterior,
+            'nuevo' => $existencia->cantidad
+        ];
+    }
+
+    public function revertirDevolucion(
+    int $tipo,
+    int $idProducto,
+    int $idAlmacen,
+    float $cantidad
+    ): void {
+
+        $existencia = Existencia::where([
+            'id_producto' => $idProducto,
+            'id_almacen' => $idAlmacen,
+        ])->firstOrFail();
+
+        if ($tipo == 1) {
+
+            // devolución de compra cancelada
+            // vuelve a entrar mercancía
+
+            $existencia->increment(
+                'cantidad',
+                $cantidad
+            );
+
+            return;
+        }
+
+        // devolución de venta cancelada
+        // vuelve a salir mercancía
+
+        if ($existencia->cantidad < $cantidad) {
+            throw new Exception(
+                'No hay existencia suficiente para cancelar la devolución.'
+            );
+        }
+
+        $existencia->decrement(
+            'cantidad',
+            $cantidad
+        );
     }
 }

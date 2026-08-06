@@ -22,4 +22,8 @@ class OrdenCompra extends Model
     public function tipo_pago(){
         return $this->hasOne(TipoPago::class, 'id', 'id_tipo_pago');
     }
+
+    public function detalles(){
+        return $this->hasMany(DetalleOrden::class, 'id_orden_compra', 'id');
+    }
 }

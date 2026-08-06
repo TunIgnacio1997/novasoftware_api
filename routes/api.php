@@ -18,6 +18,16 @@ use App\Http\Controllers\SucursalController;
 use App\Http\Controllers\TiposPagoController;
 use App\Http\Controllers\VendedorController;
 use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\AjusteInventarioController;
+use App\Http\Controllers\DevolucionController;
+use App\Http\Controllers\TrasladosController;
+use App\Http\Controllers\CreditNoteController;
+use App\Http\Controllers\CustomerPaymentController;
+use App\Http\Controllers\SupplierChargeController;
+use App\Http\Controllers\AbonoProveedorController;
+use App\Http\Controllers\CargoClienteController;
+use App\Http\Controllers\GastoController;
+use App\Http\Controllers\EntradaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,7 +35,7 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::post('login', [AuthController::class, 'login']);
+Route::post('login', [AuthController::class, 'login'])->name('login');
 Route::post('register', [AuthController::class, 'register']);
 Route::post('updateUser/{id}', [AuthController::class, 'update']);
 
@@ -33,6 +43,14 @@ Route::group(['middleware' => ['auth:sanctum']], function(){
     Route::get('user-profile', [AuthController::class, 'userProfile']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('/corte-caja', [VentaController::class, 'getCalculado']);
+    Route::post('/corte-caja', [VentaController::class, 'guardar']);
+
+    Route::prefix('credit-notes')->group(function () {
+        Route::get('/', [CreditNoteController::class, 'index']);
+        Route::post('/', [CreditNoteController::class, 'store']);
+        Route::delete('/{creditNote}', [CreditNoteController::class, 'destroy']);
+        Route::get('/{creditNote}', [CreditNoteController::class, 'show']);
+    });
 });
 
 Route::get('users', [AuthController::class, 'allUsers']);
@@ -46,24 +64,39 @@ Route::post('addProducto', [ProductsController::class, 'addProducto']);
 Route::post('updateProducto', [ProductsController::class, 'updateProducto']);
 Route::get('getImagenesProducto', [ProductsController::class, 'getImagenesProducto']);
 //----- cliente
-Route::get('buscarCliente', [ClienteController::class, 'searchCliente']);
-Route::get('getClientes', [ClienteController::class, 'getClientes']);
-Route::post('addCliente', [ClienteController::class, 'addCliente']);
-Route::post('updateCliente', [ClienteController::class, 'updateCliente']);
+Route::prefix('/clientes')->group(function () {
+    Route::get('/buscarCliente', [ClienteController::class, 'searchCliente']);
+    Route::get('/getClientes', [ClienteController::class, 'getClientes']);
+    Route::post('/addCliente', [ClienteController::class, 'addCliente']);
+    Route::post('/updateCliente', [ClienteController::class, 'updateCliente']);
+    Route::patch('/delete/{id}', [ClienteController::class, 'deleteCliente']);
+});
+
 //----- ventas
 Route::get('ventas', [VentaController::class, 'getVentas']);
 Route::get('getVentaById', [VentaController::class, 'getVentaById']);
 Route::post('createVenta', [VentaController::class, 'store']);
 Route::get('/venta/{id}', [VentaController::class, 'getDetalleVenta']);
+Route::patch(
+    '/ventas/{id}/cancelar',
+    [VentaController::class, 'cancelar']
+);
 
 //---- proveedor
-Route::get('getProveedores', [ProveedorController::class, 'getProveedores']);
-Route::post('addProveedor', [ProveedorController::class, 'addProveedor']);
-Route::post('updateProveedor', [ProveedorController::class, 'updateProveedor']);
+Route::prefix('/proveedores')->group(function () {
+    Route::get('/getProveedores', [ProveedorController::class, 'getProveedores']);
+    Route::post('/addProveedor', [ProveedorController::class, 'addProveedor']);
+    Route::post('/updateProveedor', [ProveedorController::class, 'updateProveedor']);
+    Route::patch('/delete/{id}', [ProveedorController::class, 'deleteProveedor']);
+});
+
 //---- cobratario
-Route::get('getCobratarios', [CobratarioController::class, 'getCobratarios']);
-Route::post('addCobratario', [CobratarioController::class, 'addCobratario']);
-Route::post('updateCobratario', [CobratarioController::class, 'updateCobratario']);
+Route::prefix('/cobratarios')->group(function () {
+    Route::get('/getCobratarios', [CobratarioController::class, 'getCobratarios']);
+    Route::post('/addCobratario', [CobratarioController::class, 'addCobratario']);
+    Route::post('/updateCobratario', [CobratarioController::class, 'updateCobratario']);
+    Route::patch('/delete/{id}', [CobratarioController::class, 'deleteCobratario']);
+});
 //---- almacen
 Route::get('getAlmacenes', [AlmacenController::class, 'getAlmacenes']);
 
@@ -123,4 +156,69 @@ Route::prefix('/productos')->group(function () {
 Route::prefix('/inventario')->group(function () {
     Route::get('/inv-inicial', [InventarioController::class, 'index']);
     Route::post('/guardar-inv-inicial', [InventarioController::class, 'store']);
+    Route::get('/ajuste/productos', [AjusteInventarioController::class, 'getProductos']);
+    Route::post('/ajuste/guardar', [AjusteInventarioController::class, 'guardar']);
+    Route::get('/ajustes', [AjusteInventarioController::class, 'index']);
+    Route::get('/ajuste/{id}', [AjusteInventarioController::class, 'show']);
+});
+
+Route::prefix('devoluciones')->group(function () {
+    Route::get('/', [DevolucionController::class, 'index']);
+    Route::post('/', [DevolucionController::class, 'store']);
+    Route::get(
+        '/orden/{tipo}/{folio}',
+        [DevolucionController::class, 'buscarOrden']
+    );
+    Route::patch(
+        '/{id}/cancelar',
+        [DevolucionController::class, 'cancelar']
+    );
+    Route::get(
+        '/{id}',
+        [DevolucionController::class, 'show']
+    );
+});
+
+Route::prefix('traslados')->group(function () {
+    Route::get('/', [TrasladosController::class, 'index']);
+    Route::post('/crear', [TrasladosController::class, 'store']);
+    Route::post('/recibir', [TrasladosController::class, 'edit']);
+    Route::post('/cancelar', [TrasladosController::class, 'delete']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('customer-payments')->group(function () {
+    Route::get('/', [CustomerPaymentController::class, 'index']);
+    Route::get('/form-options', [CustomerPaymentController::class, 'formOptions']);
+    Route::post('/', [CustomerPaymentController::class, 'store']);
+    Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('supplier-charges')->group(function () {
+    Route::get('/', [SupplierChargeController::class, 'index']);
+    Route::post('/', [SupplierChargeController::class, 'store']);
+    Route::delete('/{supplierCharge}', [SupplierChargeController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('abonos-proveedores')->group(function () {
+    Route::get('/', [AbonoProveedorController::class, 'index']);
+    Route::delete('/{id}', [AbonoProveedorController::class, 'destroy']);
+    Route::get('/proveedores/search', [AbonoProveedorController::class, 'searchProveedores']);
+    Route::get('/tipos-pago', [AbonoProveedorController::class, 'getTiposPago']);
+    Route::post('/abonos-proveedores', [AbonoProveedorController::class, 'store']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('cargos-clientes')->group(function () {
+    Route::get('/', [CargoClienteController::class, 'index']);
+    Route::get('/search-customers', [CargoClienteController::class, 'searchCustomers']);
+    Route::post('/{id}/cancel', [CargoClienteController::class, 'cancel']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('otros-gastos')->group(function () {
+    Route::get('/', [GastoController::class, 'index']);
+    Route::post('/{folio}/cancel', [GastoController::class, 'cancel']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('otros-ingresos')->group(function () {
+    Route::get('/', [EntradaController::class, 'index']);
+    Route::post('/{id}/cancel', [EntradaController::class, 'cancel']);
 });

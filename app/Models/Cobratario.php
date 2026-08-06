@@ -9,4 +9,6 @@ class Cobratario extends Model
 {
     use HasFactory;
     protected $table = 'cobratarios';
+    protected $fillable = ['nombre'];
+
 }

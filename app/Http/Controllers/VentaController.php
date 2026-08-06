@@ -9,6 +9,8 @@ use App\Models\Venta;
 use App\Models\DetalleVenta;
 use App\Services\SaleService;
 use App\Actions\CorteCaja\ObtenerCalculadoAction;
+use App\Actions\CorteCaja\GuardarCorteCajaAction;
+use App\Actions\Ventas\CancelarVentaAction;
 
 class VentaController extends Controller
 {
@@ -39,13 +41,6 @@ class VentaController extends Controller
             ], 500);
         }
     }
-    private function generarFolio()
-    {
-        // Ejemplo: VTA-20250930-0001
-        $lastVenta = Venta::orderBy('id_venta', 'desc')->first();
-        $nextId = $lastVenta ? $lastVenta->id_venta + 1 : 1;
-        return 'VTA-' . Carbon::now()->format('Ymd') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
-    }
 
     public function getVentas(Request $request)
     {
@@ -55,6 +50,7 @@ class VentaController extends Controller
                 'cliente',
                 'estatus'
             ])
+            ->where('id_estatus', '!=', 0)
             ->when($request->fechaInicio, function ($q) use ($request) {
                 $q->whereDate('fecha_registro', '>=', $request->fechaInicio);
             })
@@ -94,5 +90,36 @@ class VentaController extends Controller
         );
 
         return response()->json($calculado);
+    }
+
+    public function guardar(Request $request, GuardarCorteCajaAction $action)
+    {
+        try {
+            $corte = $action->execute($request->all());
+
+            return response([
+                'mensaje' => 'Corte de caja guardado con éxito',
+                'success' => true,
+                'corte'   => $corte
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response([
+                'mensaje' => $e->getMessage(),
+                'success' => false
+            ], 422);
+        }
+    }
+
+    public function cancelar(
+    int $id,
+    Request $request,
+    CancelarVentaAction $action
+    ) {
+        $action->execute($id, $request->motivo ?? 'Sin motivo especificado');
+
+        return response()->json([
+            'message' => 'Venta cancelada correctamente.'
+        ]);
     }
 }

@@ -9,7 +9,7 @@ class ProveedorController extends Controller
 {
     //
     public function getProveedores(Request $request){
-        return Proveedor::orderBy('id', 'desc')->paginate($request->itemPage);
+        return Proveedor::where('estatus', 1)->orderBy('id', 'desc')->paginate($request->itemPage);
     }
 
     public function addProveedor(Request $request){
@@ -33,7 +33,7 @@ class ProveedorController extends Controller
         $proveedor->telef1 = $request->telefono;
         $proveedor->telef2 = $request->celular;
         $proveedor->estado = $request->estado;
-
+        $proveedor->estatus = 1;
         if ($proveedor->save()) {
             return response(['mensaje'=>'El proveedor se guardo con exito', 'success'=>true], 200);
         } else {
@@ -62,11 +62,21 @@ class ProveedorController extends Controller
         $proveedor->telef1 = $request->telefono;
         $proveedor->telef2 = $request->celular;
         $proveedor->estado = $request->estado;
-
+        $proveedor->estatus = 1;
         if ($proveedor->update()) {
             return response(['mensaje'=>'El proveedor se actualizo con exito', 'success'=>true], 200);
         } else {
             return response(['mensaje'=>'El proveedor no se actualizo', 'success'=>false], 404);
+        }
+    }
+
+    public function deleteProveedor($id){
+        $proveedor = Proveedor::find($id);
+        $proveedor->estatus = 0;
+        if ($proveedor->save()) {
+            return response(['mensaje'=>'El proveedor se elimino con exito', 'success'=>true], 200);
+        } else {
+            return response(['mensaje'=>'El proveedor no se elimino', 'success'=>false], 404);
         }
     }
 }

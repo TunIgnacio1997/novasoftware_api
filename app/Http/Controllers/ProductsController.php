@@ -58,8 +58,8 @@ class ProductsController extends Controller
         $pro->tipo = 'DISTRIBUIDORA';
         $pro->familia = $request->producto['categoria'];
         $pro->sub_familia = $request->producto['subcategoria'];
-        $pro->existencia = 0;
-        $pro->existencia2 = 0;
+        //$pro->existencia = 0;
+        //$pro->existencia2 = 0;
         $pro->maximo = $request->producto['maximo'];
         $pro->minimo = $request->producto['minimo'];
         $pro->inventario = $request->producto['inventario'];
@@ -105,8 +105,8 @@ class ProductsController extends Controller
         $pro->tipo = 'DISTRIBUIDORA';
         $pro->familia = $request->producto['categoria'];
         $pro->sub_familia = $request->producto['subcategoria'];
-        $pro->existencia = 0;
-        $pro->existencia2 = 0;
+        //$pro->existencia = 0;
+        //$pro->existencia2 = 0;
         $pro->maximo = $request->producto['maximo'];
         $pro->minimo = $request->producto['minimo'];
         $pro->inventario = $request->producto['inventario'];

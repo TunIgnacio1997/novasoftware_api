@@ -9,7 +9,7 @@ class CobratarioController extends Controller
 {
     //
     public function getCobratarios(Request $request){
-        return Cobratario::orderBy('id', 'desc')->paginate($request->itemPage);
+        return Cobratario::where('estatus', 1)->orderBy('id', 'desc')->paginate($request->itemPage);
     }
 
     public function addCobratario(Request $request) {
@@ -22,6 +22,7 @@ class CobratarioController extends Controller
         $cobra->id_usuario = 1;
         $cobra->id_sucursal = 1;
         $cobra->comision = $request->comision;
+        $cobra->estatus = 1;
 
         if ($cobra->save()) {
             return response(['mensaje'=>'El cobratario se guardo con exito', 'success'=>true], 200);
@@ -45,6 +46,16 @@ class CobratarioController extends Controller
             return response(['mensaje'=>'El cobratario se actualizo con exito', 'success'=>true], 200);
         } else {
             return response(['mensaje'=>'El cobratario no se actualizo', 'success'=>false], 404);
+        }
+    }
+
+    public function deleteCobratario(int $id){
+        $cobra = Cobratario::find($id);
+        $cobra->estatus = 0;
+        if ($cobra->save()) {
+            return response(['mensaje'=>'El cobratario se elimino con exito', 'success'=>true], 200);
+        } else {
+            return response(['mensaje'=>'El cobratario no se elimino', 'success'=>false], 404);
         }
     }
 }

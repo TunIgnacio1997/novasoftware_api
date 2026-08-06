@@ -16,4 +16,10 @@ class TipoPago extends Model
         'descripcion2',
         'orden',
     ];
+
+    // Tipos de pago habilitados para seleccionar en el formulario de abonos
+    public function scopeControlado($q)
+    {
+        return $q->where('controlado', 1);
+    }
 }

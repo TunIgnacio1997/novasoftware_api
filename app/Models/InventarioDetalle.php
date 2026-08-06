@@ -14,4 +14,9 @@ class InventarioDetalle extends Model
     protected $fillable = [
         'id_inventario', 'id_producto', 'InvPC', 'InvFisico', 'diferencia'
     ];
+
+    public function producto()
+    {
+        return $this->belongsTo(Producto::class, 'id_producto');
+    }
 }

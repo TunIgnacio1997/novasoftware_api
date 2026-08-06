@@ -10,12 +10,12 @@ class ClienteController extends Controller
 {
     //
     public function searchCliente(Request $request){
-        return Cliente::where('razon_social', 'like', "%{$request->search}%")
+        return Cliente::where('razon_social', 'like', "%{$request->search}%")->where('estatus', 1)->orderBy('id', 'DESC')
         ->get();
     }
 
     public function getClientes(Request $request) {
-        return Cliente::orderBy('id', 'DESC')->paginate($request->itemPage);
+        return Cliente::where('estatus', 1)->orderBy('id', 'DESC')->paginate($request->itemPage);
     }
 
     public function addCliente(Request $request){
@@ -45,6 +45,7 @@ class ClienteController extends Controller
         $cliente->excl_dual = 'E';
         $cliente->domicilio_residencia = '';
         $cliente->bloqueo = 0;
+        $cliente->estatus = 1;
 
         if ($cliente->save()) {
             return response(['mensaje'=>'El cliente se guardo con exito', 'success'=>true], 200);
@@ -85,6 +86,17 @@ class ClienteController extends Controller
             return response(['mensaje'=>'El cliente se actualizo con exito', 'success'=>true], 200);
         } else {
             return response(['mensaje'=>'El cliente no se guardo', 'success'=>false], 404);
+        }
+    }
+
+    public function deleteCliente(Request $request){
+        $cliente = Cliente::find($request->id);
+        $cliente->estatus = 0;
+
+        if ($cliente->update()) {
+            return response(['mensaje'=>'El cliente se elimino con exito', 'success'=>true], 200);
+        } else {
+            return response(['mensaje'=>'El cliente no se elimino', 'success'=>false], 404);
         }
     }
 }
