@@ -129,7 +129,7 @@ class OrdenCompraController extends Controller
             'invoice_number' => $orden->id,
             'date' => $orden->created_at->format('Y/m/d'),
             'f_recepcion' => Carbon::parse($orden->fecha_recepcion)->format('Y/m/d'),
-            'client_name' => $orden->proveedor['razon_social'],
+            'client_name' => $orden->proveedor['razon_social'] ?? 'N/A',
             'items' => $detalleOrden,
             'total' => number_format($orden->importe, 2, '.', ','),
             'logo' => $comp->logo,

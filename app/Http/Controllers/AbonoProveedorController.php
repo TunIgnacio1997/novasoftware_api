@@ -23,9 +23,8 @@ class AbonoProveedorController extends Controller
         // En tu arquitectura actual de auth/sucursales, ajusta según el payload de tu JWT o User
         $idSucursal = auth()->user()->sucursal_id ?? $request->header('X-Sucursal-Id');
 
-        $query = SupplierCharge::with(['supplier:id,nombre_comercial', 'tipoPago:id_tipo_pago,descripcion2'])
-            ->where('id_sucursal', $idSucursal)
-            ->whereIn('estatus', ['A', 'a']);
+        $query = SupplierCharge::with(['supplier:id,nombre_comercial', 'tipoPago:id,descripcion2'])
+            ->where('id_sucursal', $idSucursal);
 
         // Filtro por Folio / ID
         if ($request->filled('folio')) {
@@ -53,17 +52,33 @@ class AbonoProveedorController extends Controller
     /**
      * Cancelar (Baja lógica) de un registro de abono.
      */
-    public function destroy($id)
+    public function cancel(Request $request, int $id)
     {
-        $abono = SupplierCharge::findOrFail($id);
+        return DB::transaction(function () use ($id, $request) {
+            
+            // 1. Obtener el abono activo
+            $abono = SupplierCharge::where('id', $id)
+                ->where('estatus', 'A')
+                ->firstOrFail();
 
-        // Actualiza el estatus a 'a' (Cancelado) siguiendo la lógica del legacy
-        $abono->update(['estatus' => 'a']);
+            // 2. Revertir el saldo al proveedor (se vuelve a sumar lo que se había abonado)
+            $proveedor = Proveedor::findOrFail($abono->id_proveedor);
+            $proveedor->increment('saldo', $abono->abono);
 
-        return response()->json([
-            'message' => 'Abono cancelado correctamente',
-            'data' => $abono
-        ]);
+            // 3. Marcar el abono como cancelado
+            $abono->update([
+                'estatus'            => 'C',
+                'id_usuario_cancelacion' => $request->user()->id ?? Auth::user()->id,
+                'fecha_cancelacion'  => now(),
+                'motivo_cancelacion'  => $request->motivo
+            ]);
+
+            return response()->json([
+                'status'       => true,
+                'mensaje'      => 'Abono a proveedor cancelado correctamente',
+                'saldo_actual' => $proveedor->fresh()->saldo
+            ]);
+        });
     }
 
     /**
@@ -99,7 +114,7 @@ class AbonoProveedorController extends Controller
     {
         $validated = $request->validated();
         $user = auth()->user();
-        $idSucursal = $user->id_sucursal ?? $request->header('X-Sucursal-Id');
+        $idSucursal = $user->sucursal_id ?? $request->header('X-Sucursal-Id');
 
         try {
             $abonoRecord = DB::transaction(function () use ($validated, $user, $idSucursal) {
@@ -107,7 +122,8 @@ class AbonoProveedorController extends Controller
 
                 $saldoActual = $proveedor->saldo;
                 $montoAbono = $validated['abono'];
-                $restante = $saldoActual - $montoAbono;
+                // Abono (Haber): aumenta el saldo del proveedor
+                $restante = $saldoActual + $montoAbono;
 
                 // 1. Guardar Movimiento
                 $movimiento = SupplierCharge::create([
@@ -123,6 +139,7 @@ class AbonoProveedorController extends Controller
                     'id_fecha'     => now(),
                     'id_usuario'   => $user->id,
                     'id_sucursal'  => $idSucursal,
+                    'vence'        => now()->addDays(30), // Ajusta según tu lógica de vencimiento
                 ]);
 
                 // 2. Actualizar Saldo del Proveedor

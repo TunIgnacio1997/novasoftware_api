@@ -48,7 +48,7 @@ Route::group(['middleware' => ['auth:sanctum']], function(){
     Route::prefix('credit-notes')->group(function () {
         Route::get('/', [CreditNoteController::class, 'index']);
         Route::post('/', [CreditNoteController::class, 'store']);
-        Route::delete('/{creditNote}', [CreditNoteController::class, 'destroy']);
+        Route::post('/{creditNote}/cancel', [CreditNoteController::class, 'cancel'])->name('credit-notes.cancel');
         Route::get('/{creditNote}', [CreditNoteController::class, 'show']);
     });
 });
@@ -77,6 +77,7 @@ Route::get('ventas', [VentaController::class, 'getVentas']);
 Route::get('getVentaById', [VentaController::class, 'getVentaById']);
 Route::post('createVenta', [VentaController::class, 'store']);
 Route::get('/venta/{id}', [VentaController::class, 'getDetalleVenta']);
+Route::get('/venta/{id}/pdf', [VentaController::class, 'descargarTicket']);
 Route::patch(
     '/ventas/{id}/cancelar',
     [VentaController::class, 'cancelar']
@@ -188,28 +189,29 @@ Route::prefix('traslados')->group(function () {
 
 Route::middleware(['auth:sanctum'])->prefix('customer-payments')->group(function () {
     Route::get('/', [CustomerPaymentController::class, 'index']);
-    Route::get('/form-options', [CustomerPaymentController::class, 'formOptions']);
+    Route::get('/{customerPayment}', [CustomerPaymentController::class, 'show']);
     Route::post('/', [CustomerPaymentController::class, 'store']);
-    Route::delete('/{customerPayment}', [CustomerPaymentController::class, 'destroy']);
+    Route::post('/{customerPayment}/cancel', [CustomerPaymentController::class, 'cancel'])->name('customer-payments.cancel');
 });
 
 Route::middleware(['auth:sanctum'])->prefix('supplier-charges')->group(function () {
     Route::get('/', [SupplierChargeController::class, 'index']);
     Route::post('/', [SupplierChargeController::class, 'store']);
-    Route::delete('/{supplierCharge}', [SupplierChargeController::class, 'destroy']);
+    Route::post('/{supplierCharge}/cancel', [SupplierChargeController::class, 'cancel']);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('abonos-proveedores')->group(function () {
     Route::get('/', [AbonoProveedorController::class, 'index']);
-    Route::delete('/{id}', [AbonoProveedorController::class, 'destroy']);
     Route::get('/proveedores/search', [AbonoProveedorController::class, 'searchProveedores']);
     Route::get('/tipos-pago', [AbonoProveedorController::class, 'getTiposPago']);
-    Route::post('/abonos-proveedores', [AbonoProveedorController::class, 'store']);
+    Route::post('/', [AbonoProveedorController::class, 'store']);
+    Route::post('/{id}/cancel', [AbonoProveedorController::class, 'cancel']);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('cargos-clientes')->group(function () {
     Route::get('/', [CargoClienteController::class, 'index']);
     Route::get('/search-customers', [CargoClienteController::class, 'searchCustomers']);
+    Route::post('/', [CargoClienteController::class, 'store']);
     Route::post('/{id}/cancel', [CargoClienteController::class, 'cancel']);
 });
 

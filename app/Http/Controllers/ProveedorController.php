@@ -8,8 +8,26 @@ use Illuminate\Http\Request;
 class ProveedorController extends Controller
 {
     //
-    public function getProveedores(Request $request){
-        return Proveedor::where('estatus', 1)->orderBy('id', 'desc')->paginate($request->itemPage);
+    public function getProveedores(Request $request)
+    {
+        $query = Proveedor::where('estatus', 1);
+
+        if ($request->filled('nombre')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('razon_social', 'like', '%' . $request->nombre . '%')
+                ->orWhere('nombre_comercial', 'like', '%' . $request->nombre . '%');
+            });
+        }
+
+        if ($request->filled('rfc')) {
+            $query->where('rfc', 'like', '%' . $request->rfc . '%');
+        }
+
+        if ($request->filled('ciudad')) {
+            $query->where('ciudad', 'like', '%' . $request->ciudad . '%');
+        }
+
+        return $query->orderBy('id', 'desc')->paginate($request->itemPage);
     }
 
     public function addProveedor(Request $request){

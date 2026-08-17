@@ -9,12 +9,24 @@ use Illuminate\Http\Request;
 class ProductsController extends Controller
 {
     //
-    public function getProductos(Request $request){
-        return  Producto::with(['existencias' => function ($q) use ($request) {
-        $q->where('id_almacen', $request->almacen);
-    }])
-    ->orderBy('id', 'desc')
-    ->paginate($request->itemPage);
+    public function getProductos(Request $request)
+    {
+        $query = Producto::with(['existencias' => function ($q) use ($request) {
+            $q->where('id_almacen', $request->almacen);
+        }]);
+
+        if ($request->filled('nombre')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('item_name', 'like', '%' . $request->nombre . '%')
+                ->orWhere('item_number', 'like', '%' . $request->nombre . '%');
+            });
+        }
+
+        if ($request->filled('categoria')) {
+            $query->where('familia', $request->categoria);
+        }
+
+        return $query->orderBy('id', 'desc')->paginate($request->itemPage);
     }
 
     public function getProductosByFamilia(Request $request){

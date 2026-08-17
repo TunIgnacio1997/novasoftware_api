@@ -14,8 +14,17 @@ class ClienteController extends Controller
         ->get();
     }
 
-    public function getClientes(Request $request) {
-        return Cliente::where('estatus', 1)->orderBy('id', 'DESC')->paginate($request->itemPage);
+    public function getClientes(Request $request) 
+    {
+        return Cliente::where('estatus', 1)
+            ->when($request->filled('id'), function ($query) use ($request) {
+                $query->where('id', $request->id);
+            })
+            ->when($request->filled('nombre'), function ($query) use ($request) {
+                $query->where('nombre_comercial', 'like', '%' . $request->nombre . '%');
+            })
+            ->orderBy('id', 'DESC')
+            ->paginate($request->itemPage);
     }
 
     public function addCliente(Request $request){

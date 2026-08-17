@@ -8,8 +8,17 @@ use Illuminate\Http\Request;
 class CobratarioController extends Controller
 {
     //
-    public function getCobratarios(Request $request){
-        return Cobratario::where('estatus', 1)->orderBy('id', 'desc')->paginate($request->itemPage);
+    public function getCobratarios(Request $request)
+    {
+        return Cobratario::where('estatus', 1)
+            ->when($request->filled('id'), function ($query) use ($request) {
+                $query->where('id', $request->id);
+            })
+            ->when($request->filled('nombre'), function ($query) use ($request) {
+                $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            })
+            ->orderBy('id', 'desc')
+            ->paginate($request->itemPage);
     }
 
     public function addCobratario(Request $request) {

@@ -11,6 +11,7 @@ use App\Services\SaleService;
 use App\Actions\CorteCaja\ObtenerCalculadoAction;
 use App\Actions\CorteCaja\GuardarCorteCajaAction;
 use App\Actions\Ventas\CancelarVentaAction;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class VentaController extends Controller
 {
@@ -87,6 +88,7 @@ class VentaController extends Controller
         $calculado = $action->execute(
             fecha:       $request->fecha ?? now()->toDateString(),
             idSucursal:  $user->sucursal_id,
+            idUsuario: $user->id
         );
 
         return response()->json($calculado);
@@ -121,5 +123,22 @@ class VentaController extends Controller
         return response()->json([
             'message' => 'Venta cancelada correctamente.'
         ]);
+    }
+
+    public function descargarTicket(int $id)
+    {
+        $venta = Venta::with([
+            'cliente',
+            'estatus',
+            'sucursal',
+            'vendedorPorUsuario',
+            'productos.producto',
+        ])->findOrFail($id);
+
+        // Ajustamos el tamaño del papel a 80mm de ancho x auto/altura requerida
+        $pdf = Pdf::loadView('ticket.ticket', compact('venta'))
+                ->setPaper([0, 0, 240, 600], 'portrait'); // 226.77 pt ≈ 80mm
+
+        return $pdf->stream('Ticket_' . $venta->folio_venta . '.pdf');
     }
 }

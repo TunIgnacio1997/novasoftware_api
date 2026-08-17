@@ -20,20 +20,25 @@ class SupplierChargeController extends Controller
         $sucursalId = Auth::user()->sucursal_id;
 
         $query = SupplierCharge::query()
-            ->active()
+            //->active()
             ->where('id_sucursal', $sucursalId)
-            ->with('supplier:id,nombre_comercial');
+            ->where('is_cargo', true)
+            ->with(['supplier:id,nombre_comercial', 'tipoPago']);
 
         if ($request->filled('folio')) {
             $query->where('id', $request->folio);
         }
 
-        if ($request->filled('fecha')) {
-            $query->whereDate('fecha', $request->fecha);
-        }
+        if ($request->filled('fechaInicio') && $request->filled('fechaFin')) {
+            $query->whereBetween('fecha', [$request->fechaInicio, $request->fechaFin]);
+        } else {
+            if ($request->filled('fechaInicio')) {
+                $query->whereDate('fecha', '>=', $request->fechaInicio);
+            }
 
-        if ($request->filled('vence')) {
-            $query->whereDate('vence', $request->vence);
+            if ($request->filled('fechaFin')) {
+                $query->whereDate('fecha', '<=', $request->fechaFin);
+            }
         }
 
         if ($request->filled('nombre_proveedor')) {
@@ -43,7 +48,7 @@ class SupplierChargeController extends Controller
             });
         }
 
-        return $query->paginate($request->input('per_page', 20));
+        return $query->orderBy('id', 'desc')->paginate($request->input('per_page', 20));
     }
 
     public function store(Request $request)
@@ -52,8 +57,8 @@ class SupplierChargeController extends Controller
             $charge = DB::transaction(function () use ($request) {
                 $supplier = Proveedor::lockForUpdate()->findOrFail($request->id_proveedor);
 
-                // El cargo SUMA a lo que la empresa debe al proveedor (dirección opuesta a clientes)
-                $restante = $supplier->saldo + $request->cargo;
+                // Cargo (Debe): disminuye el saldo que la empresa debe al proveedor
+                $restante = $supplier->saldo - $request->cargo;
 
                 $charge = SupplierCharge::create([
                     'id_proveedor' => $request->id_proveedor,
@@ -64,10 +69,12 @@ class SupplierChargeController extends Controller
                     'referencia' => $request->referencia,
                     'restante' => $restante,
                     'nota_credito' => false,
-                    'estatus' => 'C',
+                    'estatus' => 'A',
                     'id_usuario' => Auth::user()->id,
                     'id_sucursal' => Auth::user()->sucursal_id,
                     'id_fecha' => now(),
+                    'is_cargo' => true,
+                    'tipo_pago' => $request->tipo_pago
                 ]);
 
                 $supplier->update(['saldo' => $restante]);
@@ -97,11 +104,59 @@ class SupplierChargeController extends Controller
             ], 500);
         }
     }
-
-    public function destroy(SupplierCharge $supplierCharge)
+      /**
+     * Dar de baja (cancelar) un cargo a proveedor y revertir el saldo.
+     */
+    public function cancel(Request $request, SupplierCharge $supplierCharge)
     {
-        // 'c' minúscula = cancelado, igual convención que el legacy
-        $supplierCharge->update(['estatus' => 'c']);
-        return response()->noContent();
+        $request->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
+        try {
+            $charge = DB::transaction(function () use ($request, $supplierCharge) {
+                $supplierCharge->refresh();
+
+                if ($supplierCharge->estatus === 'C') {
+                    throw new Exception('El cargo ya se encuentra cancelado.');
+                }
+
+                $supplier = Proveedor::lockForUpdate()->findOrFail($supplierCharge->id_proveedor);
+
+                // Al cancelar un Cargo se revierte su efecto: se SUMA de vuelta al saldo
+                $restante = $supplier->saldo + $supplierCharge->cargo;
+
+                $supplierCharge->update([
+                    'estatus' => 'C',
+                    'motivo_cancelacion' => $request->motivo,
+                    'id_usuario_cancela' => Auth::user()->id,
+                    'fecha_cancelacion' => now(),
+                ]);
+
+                $supplier->update(['saldo' => $restante]);
+
+                return $supplierCharge->load('supplier');
+            });
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'El cargo se canceló con éxito.',
+                'data' => $charge,
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'El proveedor especificado no existe.',
+            ], 404);
+
+        } catch (Exception $e) {
+            Log::error('Error al cancelar cargo a proveedor: ' . $e->getMessage());
+
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage() ?: 'Ocurrió un error al cancelar el cargo.',
+            ], 500);
+        }
     }
 }

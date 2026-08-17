@@ -9,11 +9,14 @@ class SupplierCharge extends Model
 {
     use HasFactory;
     protected $table = 'movimientos_cuentas_proveedores';
-
+    protected $primaryKey = 'id';
+    public $timestamps = false;
+    
     protected $fillable = [
         'id_proveedor', 'id_sucursal', 'id_usuario',
-        'fecha', 'id_fecha', 'saldo', 'cargo', 'restante',
-        'vence', 'notas', 'referencia', 'nota_credito', 'estatus',
+        'fecha', 'id_fecha', 'saldo', 'abono', 'cargo', 'restante',
+        'vence', 'notas', 'referencia', 'nota_credito', 'estatus','tipo_pago',
+        'id_usuario_cancelacion','fecha_cancelacion','motivo_cancelacion','is_cargo'
     ];
 
     protected $casts = [
@@ -22,7 +25,9 @@ class SupplierCharge extends Model
         'cargo' => 'decimal:3',
         'restante' => 'decimal:3',
         'nota_credito' => 'boolean',
+        'is_cargo' =>'boolean'
     ];
+    
 
     public function supplier()
     {
@@ -37,6 +42,6 @@ class SupplierCharge extends Model
 
     public function tipoPago()
     {
-        return $this->belongsTo(TipoPago::class, 'tipo_pago', 'id_tipo_pago');
+        return $this->belongsTo(TipoPago::class, 'tipo_pago', 'id');
     }
 }

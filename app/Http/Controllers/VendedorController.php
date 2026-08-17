@@ -10,8 +10,17 @@ use Illuminate\Validation\Rule;
 class VendedorController extends Controller
 {
     //
-    public function getVendedores(Request $request){
-        return Vendedor::with('user')->orderBy('id','desc')->paginate($request->itemPage);
+    public function getVendedores(Request $request)
+    {
+        return Vendedor::with('user')
+            ->when($request->filled('id'), function ($query) use ($request) {
+                $query->where('id', $request->id);
+            })
+            ->when($request->filled('nombre'), function ($query) use ($request) {
+                $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            })
+            ->orderBy('id', 'desc')
+            ->paginate($request->itemPage);
     }
 
     public function addVendedor(Request $request){

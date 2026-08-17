@@ -26,6 +26,7 @@ class Proveedor extends Model
         'curp',
         'dias',
         'bloqueo',
+        'saldo',
         'id_company',
         'telef1',
         'telef2',

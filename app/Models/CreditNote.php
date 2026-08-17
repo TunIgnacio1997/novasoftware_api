@@ -13,7 +13,7 @@ class CreditNote extends Model
     protected $fillable = [
         'id_cliente', 'id_sucursal', 'id_usuario', 'fecha',
         'saldo', 'abono', 'restante', 'tipo_pago',
-        'notas', 'referencia', 'nota_credito', 'estatus','id_fecha'
+        'notas', 'referencia', 'nota_credito', 'estatus','id_fecha', 'fecha_cancelacion','motivo_cancelacion','id_usuario_cancelacion'
     ];
 
     protected $casts = [
