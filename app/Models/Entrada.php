@@ -21,6 +21,8 @@ class Entrada extends Model
         'vencimiento',
         'nota',
         'estatus',
+        'id_usuario',
+        'id_fecha'
     ];
 
     public function paymentType()

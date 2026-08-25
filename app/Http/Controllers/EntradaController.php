@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Entrada;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class EntradaController extends Controller
 {
@@ -15,7 +17,7 @@ class EntradaController extends Controller
     {
         $idSucursal = session('rrf_logged_id_sucursal', 1);
 
-        $query = Entrada::with('paymentType:id_tipo_pago,descripcion2')
+        $query = Entrada::with('paymentType:id,descripcion2')
             ->where('id_sucursal', $idSucursal);
 
         // Filtro por Folio (id)
@@ -45,10 +47,73 @@ class EntradaController extends Controller
         ]);
     }
 
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'fecha'        => 'required|date',
+            'acreedor'     => 'required|string|max:255',
+            'cantidad'     => 'required|numeric|min:0.01',
+            'tipo_pago_id' => 'required',
+            'vencimiento'  => 'required|date',
+            'observaciones'=> 'nullable|string',
+        ]);
+
+        // Combinar los datos validados con el estatus por defecto y ajustar nombres de BD
+        $entrada = Entrada::create([
+            'fecha'        => $validated['fecha'],
+            'acreedor'     => $validated['acreedor'],
+            'cantidad'     => $validated['cantidad'],
+            'tipo_pago'    => $validated['tipo_pago_id'], // O 'tipo_pago_id' según la columna en BD
+            'vencimiento'  => $validated['vencimiento'],
+            'nota'         => $validated['observaciones'] ?? null, // Si en la BD la columna se llama 'nota'
+            'estatus'      => true, // O 1, según cómo manejes tus estatus (Activo/Pendiente)
+            'id_usuario'   => Auth::user()->id,
+            'id_fecha'     => now(),
+            'id_sucursal'  => Auth::user()->sucursal_id
+        ]);
+
+        return response()->json([
+            'message' => 'Ingreso registrado correctamente',
+            'data'    => $entrada,
+        ], 201);
+    }
+
+    /**
+     * Actualiza el registro en la base de datos.
+     */
+    public function update(Request $request, Entrada $entrada): JsonResponse
+    {
+        $validated = $request->validate([
+            'fecha'        => 'required|date',
+            'acreedor'     => 'required|string|max:255',
+            'cantidad'     => 'required|numeric|min:0.01',
+            'tipo_pago_id' => 'required',
+            'vencimiento'  => 'required|date',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        $entrada->update([
+            'fecha'       => $validated['fecha'],
+            'acreedor'    => $validated['acreedor'],
+            'cantidad'    => $validated['cantidad'],
+            'tipo_pago'   => $validated['tipo_pago_id'],
+            'vencimiento' => $validated['vencimiento'],
+            'nota'        => $validated['observaciones'] ?? null,
+            // Opcional: si quieres auditar quién editó y cuándo
+            // 'id_usuario'  => Auth::user()->id,
+            // 'id_fecha'    => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Ingreso actualizado correctamente',
+            'data'    => $entrada,
+        ], 200);
+    }
+
     /**
      * Cancelar registro (Cambio de estatus a 0 / eliminado)
      */
-    public function cancel($id)
+    public function cancel(int $id)
     {
         $income = Entrada::findOrFail($id);
         

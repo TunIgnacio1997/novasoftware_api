@@ -50,6 +50,8 @@ class CustomerPaymentController extends Controller
 
                 $payment = CustomerPayment::create([
                     ...$request->validated(),
+                    'notas' => $request->input('notas') ?: '',
+                    'referencia' => $request->input('referencia') ?: '',
                     'restante' => $restante,
                     'nota_credito' => false,
                     'estatus' => 'A',

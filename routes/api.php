@@ -28,6 +28,7 @@ use App\Http\Controllers\AbonoProveedorController;
 use App\Http\Controllers\CargoClienteController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\EntradaController;
+use App\Http\Controllers\FondoFijoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -217,10 +218,20 @@ Route::middleware(['auth:sanctum'])->prefix('cargos-clientes')->group(function (
 
 Route::middleware(['auth:sanctum'])->prefix('otros-gastos')->group(function () {
     Route::get('/', [GastoController::class, 'index']);
+    Route::post('/create', [GastoController::class, 'store']);
     Route::post('/{folio}/cancel', [GastoController::class, 'cancel']);
 });
 
 Route::middleware(['auth:sanctum'])->prefix('otros-ingresos')->group(function () {
     Route::get('/', [EntradaController::class, 'index']);
-    Route::post('/{id}/cancel', [EntradaController::class, 'cancel']);
+    Route::post('/entradas', [EntradaController::class, 'store']);
+    Route::put('/entradas/{entrada}', [EntradaController::class, 'update']);
+    Route::delete('/{id}/cancel', [EntradaController::class, 'cancel']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('fondo-fijo')->group(function () {
+    Route::get('/estado', [FondoFijoController::class, 'estadoCaja']);
+    Route::post('/abrir', [FondoFijoController::class, 'abrirCaja']);
+    Route::post('/cerrar/{id}', [FondoFijoController::class, 'cerrarCaja']);
+    Route::get('/historial', [FondoFijoController::class, 'historial']);
 });
