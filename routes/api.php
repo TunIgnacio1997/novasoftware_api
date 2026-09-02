@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\AlmacenController;
 use App\Http\Controllers\api\AuthController;
+use App\Http\Controllers\api\ActivityController;
 use App\Http\Controllers\api\ClienteController;
+use App\Http\Controllers\api\ContactController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CobratarioController;
 use App\Http\Controllers\CompanyController;
@@ -29,6 +31,7 @@ use App\Http\Controllers\CargoClienteController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\FondoFijoController;
+use App\Http\Controllers\QuotationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -209,6 +212,22 @@ Route::middleware(['auth:sanctum'])->prefix('abonos-proveedores')->group(functio
     Route::post('/{id}/cancel', [AbonoProveedorController::class, 'cancel']);
 });
 
+Route::middleware(['auth:sanctum'])->prefix('contacts')->group(function () {
+    Route::get('/', [ContactController::class, 'index']);
+    Route::post('/', [ContactController::class, 'store']);
+    Route::get('/{contact}', [ContactController::class, 'show']);
+    Route::match(['put', 'patch'], '/{contact}', [ContactController::class, 'update']);
+    Route::delete('/{contact}', [ContactController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('activities')->group(function () {
+    Route::get('/', [ActivityController::class, 'index']);
+    Route::post('/', [ActivityController::class, 'store']);
+    Route::get('/{activity}', [ActivityController::class, 'show']);
+    Route::match(['put', 'patch'], '/{activity}', [ActivityController::class, 'update']);
+    Route::delete('/{activity}', [ActivityController::class, 'destroy']);
+});
+
 Route::middleware(['auth:sanctum'])->prefix('cargos-clientes')->group(function () {
     Route::get('/', [CargoClienteController::class, 'index']);
     Route::get('/search-customers', [CargoClienteController::class, 'searchCustomers']);
@@ -234,4 +253,13 @@ Route::middleware(['auth:sanctum'])->prefix('fondo-fijo')->group(function () {
     Route::post('/abrir', [FondoFijoController::class, 'abrirCaja']);
     Route::post('/cerrar/{id}', [FondoFijoController::class, 'cerrarCaja']);
     Route::get('/historial', [FondoFijoController::class, 'historial']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('quotations')->group(function () {
+    Route::get('/', [QuotationController::class, 'index']);
+    Route::post('/', [QuotationController::class, 'store']);
+    Route::get('/{quotation}/pdf', [QuotationController::class, 'pdf']);
+    Route::get('/{quotation}', [QuotationController::class, 'show']);
+    Route::match(['put', 'patch'], '/{quotation}', [QuotationController::class, 'update']);
+    Route::delete('/{quotation}', [QuotationController::class, 'destroy']);
 });

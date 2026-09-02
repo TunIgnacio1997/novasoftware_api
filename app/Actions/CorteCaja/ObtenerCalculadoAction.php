@@ -26,14 +26,25 @@ class ObtenerCalculadoAction
             ->groupBy('detalle_venta_pago.id_metodo')
             ->pluck('total', 'tipo_pago');
 
-        // 2. COBRANZA CLIENTES
+        // 2. COBRANZA CLIENTES - ABONOS (is_cargo = 0)
         $cobranza = DB::table('movimientos_cuentas_clientes')
             ->whereDate('fecha', $fecha)
             ->where('id_sucursal', $idSucursal)
             ->whereNull('fecha_cancelacion')
-            ->where('abono', '>', 0)
+            ->where('is_cargo', 0)
             ->when($idUsuario, fn($q) => $q->where('id_usuario', $idUsuario))
-            ->select('tipo_pago', DB::raw('SUM(abono) as total'))
+            ->select('tipo_pago', DB::raw('SUM(abono) as total')) // Cambia 'monto' por el nombre de tu columna de importe/monto
+            ->groupBy('tipo_pago')
+            ->pluck('total', 'tipo_pago');
+
+        // 2b. CARGOS CLIENTES (is_cargo = 1)
+        $cargosClientes = DB::table('movimientos_cuentas_clientes')
+            ->whereDate('fecha', $fecha)
+            ->where('id_sucursal', $idSucursal)
+            ->whereNull('fecha_cancelacion')
+            ->where('is_cargo', 1)
+            ->when($idUsuario, fn($q) => $q->where('id_usuario', $idUsuario))
+            ->select('tipo_pago', DB::raw('SUM(cargo) as total'))
             ->groupBy('tipo_pago')
             ->pluck('total', 'tipo_pago');
 
@@ -67,18 +78,29 @@ class ObtenerCalculadoAction
             ->groupBy('id_tipo_pago')
             ->pluck('total', 'tipo_pago');
 
-        // 6. PAGOS A PROVEEDORES
-        $pagosProv = DB::table('movimientos_cuentas_proveedores')
+        // 6. PAGOS A PROVEEDORES - CARGOS (is_cargo = 1 -> salida de dinero / pago al proveedor)
+        $cargosProv = DB::table('movimientos_cuentas_proveedores')
             ->whereDate('fecha', $fecha)
             ->where('id_sucursal', $idSucursal)
             ->whereNull('fecha_cancelacion')
-            ->where('abono', '>', 0)
+            ->where('is_cargo', 1)
+            ->when($idUsuario, fn($q) => $q->where('id_usuario', $idUsuario))
+            ->select('tipo_pago', DB::raw('SUM(cargo) as total'))
+            ->groupBy('tipo_pago')
+            ->pluck('total', 'tipo_pago');
+
+        // 6b. ABONOS PROVEEDORES (is_cargo = 0 -> incremento de deuda con el proveedor)
+        $abonosProv = DB::table('movimientos_cuentas_proveedores')
+            ->whereDate('fecha', $fecha)
+            ->where('id_sucursal', $idSucursal)
+            ->whereNull('fecha_cancelacion')
+            ->where('is_cargo', 0)
             ->when($idUsuario, fn($q) => $q->where('id_usuario', $idUsuario))
             ->select('tipo_pago', DB::raw('SUM(abono) as total'))
             ->groupBy('tipo_pago')
             ->pluck('total', 'tipo_pago');
 
-        // Auxiliares para sumar montos bancarios (Tarjeta, Transferencia, Cheque)
+        // Auxiliar para sumar montos bancarios (Tarjeta, Transferencia, Cheque)
         $sumarBanco = fn($coleccion) => (float)(
             ($coleccion[self::TIPO_TARJETA] ?? 0) +
             ($coleccion[self::TIPO_TRANSFERENCIA] ?? 0) +
@@ -87,28 +109,32 @@ class ObtenerCalculadoAction
 
         return [
             // Ventas
-            'ventas_efectivo'        => (float) ($ventas[self::TIPO_EFECTIVO] ?? 0),
-            'ventas_banco'           => $sumarBanco($ventas),
+            'ventas_efectivo'          => (float) ($ventas[self::TIPO_EFECTIVO] ?? 0),
+            'ventas_banco'             => $sumarBanco($ventas),
 
-            // Abonos Clientes
-            'abonos_clie_efectivo'   => (float) ($cobranza[self::TIPO_EFECTIVO] ?? 0),
-            'abonos_clie_banco'      => $sumarBanco($cobranza),
+            // Clientes
+            'abonos_clie_efectivo'     => (float) ($cobranza[self::TIPO_EFECTIVO] ?? 0),
+            'abonos_clie_banco'        => $sumarBanco($cobranza),
+            'cargos_clie_efectivo'     => (float) ($cargosClientes[self::TIPO_EFECTIVO] ?? 0),
+            'cargos_clie_banco'        => $sumarBanco($cargosClientes),
 
             // Otras Entradas
-            'otras_entradas_efectivo' => (float) ($entradas[self::TIPO_EFECTIVO] ?? 0),
-            'otras_entradas_banco'    => $sumarBanco($entradas),
+            'otras_entradas_efectivo'  => (float) ($entradas[self::TIPO_EFECTIVO] ?? 0),
+            'otras_entradas_banco'     => $sumarBanco($entradas),
 
             // Compras
-            'compras_efectivo'       => (float) ($compras[self::TIPO_EFECTIVO] ?? 0),
-            'compras_banco'          => $sumarBanco($compras),
+            'compras_efectivo'         => (float) ($compras[self::TIPO_EFECTIVO] ?? 0),
+            'compras_banco'            => $sumarBanco($compras),
 
-            // Abonos Proveedores
-            'abonos_prov_efectivo'   => (float) ($pagosProv[self::TIPO_EFECTIVO] ?? 0),
-            'abonos_prov_banco'      => $sumarBanco($pagosProv),
+            // Proveedores
+            'cargos_prov_efectivo'     => (float) ($cargosProv[self::TIPO_EFECTIVO] ?? 0), // Pagos real/efectivo
+            'cargos_prov_banco'        => $sumarBanco($cargosProv),                        // Pagos real/banco
+            'abonos_prov_efectivo'     => (float) ($abonosProv[self::TIPO_EFECTIVO] ?? 0),
+            'abonos_prov_banco'        => $sumarBanco($abonosProv),
 
             // Otros Gastos
-            'otros_gastos_efectivo'  => (float) ($gastos[self::TIPO_EFECTIVO] ?? 0),
-            'otros_gastos_banco'     => $sumarBanco($gastos),
+            'otros_gastos_efectivo'    => (float) ($gastos[self::TIPO_EFECTIVO] ?? 0),
+            'otros_gastos_banco'       => $sumarBanco($gastos),
         ];
     }
 }
