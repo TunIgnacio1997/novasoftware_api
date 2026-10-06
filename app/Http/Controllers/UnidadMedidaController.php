@@ -33,4 +33,16 @@ class UnidadMedidaController extends Controller
             return response(['mensaje'=>'La unidad de medida no se actualizo', 'success'=>false], 404);
         }
     }
+
+    public function deleteUnidadesMedida(Request $request){
+        $unidad = UnidadMedida::find($request->id);
+
+        if (!$unidad) {
+            return response(['mensaje'=>'La unidad de medida no existe', 'success'=>false], 404);
+        }
+
+        $unidad->delete();
+
+        return response(['mensaje'=>'La unidad de medida se elimino con exito', 'success'=>true], 200);
+    }
 }

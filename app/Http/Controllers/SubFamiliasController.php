@@ -23,7 +23,7 @@ class SubFamiliasController extends Controller
             return response(['mensaje'=>'La subfamilia se guardo con exito', 'success'=>true], 200);
         } else {
             return response(['mensaje'=>'La subfamilia no se guardo', 'success'=>false], 404);
-        } 
+        }
     }
 
     public function updateSubFamilia(Request $request){
@@ -35,8 +35,23 @@ class SubFamiliasController extends Controller
             return response(['mensaje'=>'La subfamilia no se guardo', 'success'=>false], 404);
         }
     }
-    
+
     public function deleteSubFamilia(Request $request){
-        
+        $subFamilia = SubFamilia::find($request->id);
+
+        if (!$subFamilia) {
+            return response(['mensaje'=>'La subfamilia no existe', 'success'=>false], 404);
+        }
+
+        if ($subFamilia->subSubFamilias()->exists()) {
+            return response([
+                'mensaje'=>'No se puede eliminar la subfamilia porque tiene sub-subfamilias asociadas',
+                'success'=>false,
+            ], 409);
+        }
+
+        $subFamilia->delete();
+
+        return response(['mensaje'=>'La subfamilia se elimino con exito', 'success'=>true], 200);
     }
 }

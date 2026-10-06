@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Estatus;
 use App\Models\OrdenCompra;
 use Illuminate\Support\Facades\DB;
 
@@ -14,13 +15,25 @@ class OrderReceptionService
 
     public function receive($request)
     {
+        $estatusCompletadoCompra = Estatus::query()
+            ->where('descripcion', 'Completado')
+            ->where('tipo', 'compra')
+            ->first();
+
+        if (! $estatusCompletadoCompra) {
+            return response([
+                'success' => false,
+                'mensaje' => 'No existe el estatus "Completado" para "compra". Importa los catálogos iniciales e intenta de nuevo.',
+            ], 422);
+        }
+
         DB::beginTransaction();
 
         try {
 
             $orden = OrdenCompra::findOrFail($request->id);
 
-            $orden->id_estatus = 3;
+            $orden->id_estatus = $estatusCompletadoCompra->id;
             $orden->fecha_recepcion = now();
 
             foreach ($request->productos as $item) {

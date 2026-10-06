@@ -23,6 +23,14 @@ class AuthController extends Controller
         $user->email_verified_at = $request->email;
         $user->password = Hash::make($request->password);
         $user->sucursal_id = $request->sucursal;
+
+        if ($request->has('rol_id')) {
+            $request->validate([
+                'rol_id' => ['required', 'integer', 'exists:roles,id'],
+            ]);
+            $user->rol_id = $request->rol_id;
+        }
+
         $user->save();
 
         return response($user, Response::HTTP_CREATED);
@@ -36,7 +44,7 @@ class AuthController extends Controller
         $user->user = $request->user;
         $user->email_verified_at = $request->email;
         $user->sucursal_id = $request->sucursal;
-        
+
         // Solo actualizar password si viene
         if (!empty($request->password)) {
             $user->password = Hash::make($request->password);
@@ -60,7 +68,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = Auth::user()->load(['sucursal', 'vendedor']);
+        $user = Auth::user()->load(['rol', 'sucursal', 'vendedor']);
 
         $token = $user->createToken('token')->plainTextToken;
 
@@ -76,14 +84,14 @@ class AuthController extends Controller
             "userData" => auth()->user()
         ], Response::HTTP_OK);
     }
-    
+
     public function logout() {
         $cookie = Cookie::forget('cookie_token');
         return response(["message"=>"Cierre de sesión OK"], Response::HTTP_OK)->withCookie($cookie);
     }
 
     public function allUsers(Request $request) {
-       $users = User::with('sucursal')->orderBy('id', 'desc')->paginate($request->itemPage);
+    $users = User::with(['rol', 'sucursal'])->orderBy('id', 'desc')->paginate($request->itemPage);
        return response()->json($users);
     }
 }

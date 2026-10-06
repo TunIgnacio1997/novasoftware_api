@@ -4,14 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use App\Models\DetalleOrden;
+use App\Models\Estatus;
 use App\Models\OrdenCompra;
-use App\Models\Producto;
+use App\Services\InventoryService;
+use App\Services\MovementService;
+use DomainException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
-use App\Http\Controllers\MovimientoController;
-use App\Models\Existencia;
 use App\Services\OrderReceptionService;
 
 class OrdenCompraController extends Controller
@@ -38,10 +40,18 @@ class OrdenCompraController extends Controller
 
     public function create(Request $request)
     {
+        $estatusProcesoCompra = $this->findEstatusProcesoCompra();
+        if (! $estatusProcesoCompra) {
+            return response([
+                'success' => false,
+                'mensaje' => 'No existe el estatus "Proceso" para "compra". Importa los catálogos iniciales e intenta de nuevo.',
+            ], 422);
+        }
+
         $orden = new OrdenCompra();
 
         $orden->id_proveedor = $request->proveedor['id'];
-        $orden->id_estatus = 1;
+        $orden->id_estatus = $estatusProcesoCompra->id;
         $orden->id_tipo_pago = $request->tipo_pago['id'];
         $orden->fecha_recepcion = $request->fecha_recepcion;
         $orden->iva_aplicado = 16;
@@ -78,7 +88,6 @@ class OrdenCompraController extends Controller
         $orden = OrdenCompra::find($request->id);
 
         $orden->id_proveedor = $request->proveedor['id'];
-        $orden->id_estatus = 1;
         $orden->id_tipo_pago = $request->tipo_pago['id'];
         $orden->fecha_recepcion = $request->fecha_recepcion;
         $orden->iva_aplicado = 16;
@@ -144,38 +153,112 @@ class OrdenCompraController extends Controller
         return $pdf->stream('factura.pdf');
     }
 
-    public function delete(Request $request)
+    public function delete(
+        Request $request,
+        InventoryService $inventoryService,
+        MovementService $movementService
+    )
     {
         $orden = OrdenCompra::find($request->id);
-        switch ($orden->id_estatus) {
-            case 1:
-                $orden->id_estatus = 5;
-                if ($orden->update()) {
-                    return response(["success" => true, "data" => $orden->id, "mensaje" => 'La orden se cancelo con exito'], 200);
-                } else {
-                    return response(["success" => false, "data" => '', "mensaje" => 'Ocurrio un error al cancelar la orden'], 404);
-                }
-            case 2:
-                $orden->id_estatus = 5;
-                $detalleOrden = DetalleOrden::where('id_orden_compra', $request->id)->with('producto')->get();
-                foreach ($detalleOrden as $val) {
-                    $mov = new MovimientoController();
-                    $producto = Producto::where('id', $val['producto']['id'])->first();
-                    $existe_pos = $producto->existencia - $val['cantidad'];
-                    //movimiento
-                    $mov->create($producto->id,$producto->unit_m,date('Y-m-d'),$val['cantidad'],'orden',0,$producto->existencia,$existe_pos,$request->usuario['id'],$orden->id_almacen);
-                    //movimiento
-                    $producto->existencia = $producto->existencia - $val['cantidad'];
-                    $producto->update();
-                }
-                if ($orden->update()) {
-                    return response(["success" => true, "data" => $orden->id, "mensaje" => 'La orden se cancelo con exito'], 200);
-                } else {
-                    return response(["success" => false, "data" => '', "mensaje" => 'Ocurrio un error al cancelar la orden'], 404);
-                }
-            default:
-                return response(["success" => true, "data" => $orden->id, "mensaje" => 'Ocurrio un error al cancelar la orden'], 400);
+        if (! $orden) {
+            return response([
+                'success' => false,
+                'mensaje' => 'La orden de compra no existe',
+            ], 404);
         }
+
+        $estatusProcesoCompra = $this->findEstatusCompra('Proceso');
+        $estatusCompletadoCompra = $this->findEstatusCompra('Completado');
+        $estatusCanceladoCompra = $this->findEstatusCompra('Cancelado');
+
+        if (! $estatusProcesoCompra || ! $estatusCompletadoCompra || ! $estatusCanceladoCompra) {
+            return response([
+                'success' => false,
+                'mensaje' => 'Faltan estatus de compra requeridos. Importa los catálogos iniciales e intenta de nuevo.',
+            ], 422);
+        }
+
+        $estatusActualExiste = Estatus::query()->whereKey($orden->id_estatus)->exists();
+        $estatusIdActual = (int) $orden->id_estatus;
+        $esProceso = $estatusIdActual === (int) $estatusProcesoCompra->id
+            || (! $estatusActualExiste && $estatusIdActual === 1);
+        $esCompletado = $estatusIdActual === (int) $estatusCompletadoCompra->id
+            || (! $estatusActualExiste && in_array($estatusIdActual, [2, 3], true));
+
+        if ($esProceso) {
+            $orden->id_estatus = $estatusCanceladoCompra->id;
+
+            if ($orden->save()) {
+                return response([
+                    'success' => true,
+                    'data' => $orden->id,
+                    'mensaje' => 'La orden se cancelo con exito',
+                ]);
+            }
+
+            return response([
+                'success' => false,
+                'data' => '',
+                'mensaje' => 'Ocurrio un error al cancelar la orden',
+            ], 500);
+        }
+
+        if ($esCompletado) {
+            try {
+                DB::transaction(function () use (
+                    $orden,
+                    $estatusCanceladoCompra,
+                    $request,
+                    $inventoryService,
+                    $movementService
+                ) {
+                    $detalleOrden = DetalleOrden::where('id_orden_compra', $orden->id)->get();
+
+                    foreach ($detalleOrden as $detalle) {
+                        $inventario = $inventoryService->aplicarDevolucion(
+                            'COMPRA',
+                            (int) $detalle->id_producto,
+                            (int) $orden->id_almacen,
+                            (float) $detalle->cantidad
+                        );
+
+                        $movementService->create([
+                            'producto_id' => $detalle->id_producto,
+                            'almacen_id' => $orden->id_almacen,
+                            'cantidad' => $detalle->cantidad,
+                            'anterior' => $inventario['anterior'],
+                            'nuevo' => $inventario['nuevo'],
+                            'usuario_id' => $request->usuario['id'],
+                            'id_unidad_medida' => $detalle->id_unidad_medida,
+                            'tipo' => 'orden',
+                        ]);
+                    }
+
+                    $orden->id_estatus = $estatusCanceladoCompra->id;
+                    if (! $orden->save()) {
+                        throw new \RuntimeException('Ocurrio un error al cancelar la orden.');
+                    }
+                });
+            } catch (DomainException $exception) {
+                return response([
+                    'success' => false,
+                    'data' => $orden->id,
+                    'mensaje' => $exception->getMessage(),
+                ], 422);
+            }
+
+            return response([
+                'success' => true,
+                'data' => $orden->id,
+                'mensaje' => 'La orden se cancelo con exito',
+            ]);
+        }
+
+        return response([
+            'success' => false,
+            'data' => $orden->id,
+            'mensaje' => 'La orden no se puede cancelar desde su estatus actual',
+        ], 409);
     }
 
     public function saveFullReception(
@@ -185,5 +268,18 @@ class OrdenCompraController extends Controller
 
         return $service->receive($request);
 
+    }
+
+    private function findEstatusProcesoCompra(): ?Estatus
+    {
+        return $this->findEstatusCompra('Proceso');
+    }
+
+    private function findEstatusCompra(string $descripcion): ?Estatus
+    {
+        return Estatus::query()
+            ->where('descripcion', $descripcion)
+            ->where('tipo', 'compra')
+            ->first();
     }
 }
