@@ -1,21 +1,25 @@
 #!/bin/bash
 
-# Generar key si no existe
-php artisan key:generate --force
-
-# Crear el enlace simbólico para poder ver las imágenes del storage público
+# Enlace simbólico para las imágenes del storage público
 php artisan storage:link --force
 
-# Limpiar cachés viejas para evitar conflictos de rutas y URLs
+# Limpiar cachés viejas
 php artisan config:clear
 php artisan route:clear
 php artisan view:clear
 
-# Migraciones
-php artisan migrate --force
+# Migraciones (el resultado aparece en los Logs de Render)
+php artisan migrate --force || echo ">>> MIGRATE FALLÓ, revisa el error de arriba"
 
-# Iniciar PHP-FPM en background
+# Permisos DESPUÉS de los comandos artisan (corren como root y pueden crear
+# archivos que php-fpm, como www-data, luego no puede escribir)
+mkdir -p /var/www/storage/logs
+touch /var/www/storage/logs/laravel.log
+chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+
+# PHP-FPM en background
 php-fpm &
 
-# Iniciar Nginx en primer plano
+# Nginx en primer plano
 nginx -g "daemon off;"
