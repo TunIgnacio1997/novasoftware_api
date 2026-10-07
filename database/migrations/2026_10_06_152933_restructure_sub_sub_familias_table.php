@@ -3,78 +3,106 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
+    private string $tabla = 'sub_sub_familias';
+
     public function up(): void
     {
-        // 1. Quitar la clave primaria antigua (nombre) si existe
-        try {
-            DB::statement('ALTER TABLE `sub_sub_familias` DROP PRIMARY KEY');
-        } catch (\Throwable $e) {
-            // Ignorar si la clave primaria ya no estaba asignada a 'nombre'
+        $tabla = $this->tabla;
+
+        // 1. Quitar la PK actual solo si está sobre 'nombre'
+        $pk = $this->primaryIndex();
+        if ($pk && $pk['columns'] === ['nombre']) {
+            Schema::table($tabla, function (Blueprint $table) use ($pk) {
+                $table->dropPrimary($pk['name']);
+            });
         }
 
-        // 2. Modificar la estructura de la tabla
-        Schema::table('sub_sub_familias', function (Blueprint $table) {
-            if (!Schema::hasColumn('sub_sub_familias', 'id')) {
-                $table->bigIncrements('id')->first();
-            }
-
-            if (!Schema::hasColumn('sub_sub_familias', 'id_sub_familia')) {
-                $table->unsignedBigInteger('id_sub_familia')->nullable()->after('nombre');
-            }
-
-            if (!Schema::hasColumn('sub_sub_familias', 'created_at')) {
-                $table->timestamps();
-            }
-        });
-
-        // 3. Asignar el índice único a 'nombre' protegiendo contra duplicados
-        try {
-            Schema::table('sub_sub_familias', function (Blueprint $table) {$table->unique('nombre');
+        // 2. Agregar id como nueva PK (llamada separada: el orden importa)
+        if (!Schema::hasColumn($tabla, 'id')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->id()->first();
             });
-        } catch (\Throwable $e) {
-            // Ignorar si el índice único ya existía en MySQL
+        }
+
+        // 3. Columnas nuevas
+        if (!Schema::hasColumn($tabla, 'id_sub_familia')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->unsignedBigInteger('id_sub_familia')->nullable();
+            });
+        }
+
+        if (!Schema::hasColumn($tabla, 'created_at')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->timestamp('created_at')->nullable();
+            });
+        }
+
+        if (!Schema::hasColumn($tabla, 'updated_at')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->timestamp('updated_at')->nullable();
+            });
+        }
+
+        // 4. Índice único en 'nombre' si no existe
+        if (!$this->hasUniqueOn('nombre')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->unique('nombre');
+            });
         }
     }
 
     public function down(): void
     {
-        Schema::table('sub_sub_familias', function (Blueprint $table) {
-            // 1. Quitar el índice único de 'nombre'
-            try {
-                $table->dropUnique(['nombre']);
-            } catch (\Throwable $e) {}
+        $tabla = $this->tabla;
 
-            // 2. Quitar columnas secundarias
-            $columnsToDrop = [];
-            foreach (['id_sub_familia', 'created_at', 'updated_at'] as $column) {
-                if (Schema::hasColumn('sub_sub_familias', $column)) {
-                    $columnsToDrop[] =$column;
-                }
+        // 1. Quitar único de 'nombre'
+        foreach (Schema::getIndexes($tabla) as $index) {
+            if ($index['unique'] && !$index['primary'] && $index['columns'] === ['nombre']) {
+                Schema::table($tabla, function (Blueprint $table) use ($index) {
+                    $table->dropUnique($index['name']);
+                });
             }
-            if (!empty($columnsToDrop)) {
-                $table->dropColumn($columnsToDrop);
-            }
-        });
+        }
 
-        if (Schema::hasColumn('sub_sub_familias', 'id')) {
-            // 3. Quitar AUTO_INCREMENT de 'id' antes de drop
-            DB::statement('ALTER TABLE `sub_sub_familias` MODIFY `id` BIGINT UNSIGNED NOT NULL');
-
-            try {
-                DB::statement('ALTER TABLE `sub_sub_familias` DROP PRIMARY KEY');
-            } catch (\Throwable $e) {}
-
-            Schema::table('sub_sub_familias', function (Blueprint $table) {$table->dropColumn('id');
+        // 2. Quitar columnas (al borrar 'id' se elimina también su PK)
+        $drop = array_values(array_filter(
+            ['id_sub_familia', 'created_at', 'updated_at', 'id'],
+            fn ($c) => Schema::hasColumn($tabla, $c)
+        ));
+        if ($drop) {
+            Schema::table($tabla, function (Blueprint $table) use ($drop) {
+                $table->dropColumn($drop);
             });
         }
 
-        // 4. Restablecer 'nombre' como PRIMARY KEY original
-        try {
-            DB::statement('ALTER TABLE `sub_sub_familias` ADD PRIMARY KEY (`nombre`)');
-        } catch (\Throwable $e) {}
+        // 3. Restablecer PK en 'nombre'
+        if (!$this->primaryIndex() && Schema::hasColumn($tabla, 'nombre')) {
+            Schema::table($tabla, function (Blueprint $table) {
+                $table->primary('nombre');
+            });
+        }
+    }
+
+    private function primaryIndex(): ?array
+    {
+        foreach (Schema::getIndexes($this->tabla) as $index) {
+            if ($index['primary']) {
+                return $index;
+            }
+        }
+        return null;
+    }
+
+    private function hasUniqueOn(string $column): bool
+    {
+        foreach (Schema::getIndexes($this->tabla) as $index) {
+            if ($index['unique'] && !$index['primary'] && $index['columns'] === [$column]) {
+                return true;
+            }
+        }
+        return false;
     }
 };
