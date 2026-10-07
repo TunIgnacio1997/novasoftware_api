@@ -16,6 +16,26 @@ use Tests\TestCase;
 
 class CatalogImportMappingTest extends TestCase
 {
+    public function test_seller_username_uses_lowercase_ascii_first_name(): void
+    {
+        $cases = [
+            ['Martín González', 'martin'],
+            ['ÁNGEL García', 'angel'],
+            ['Élodie O\'Neil', 'elodie'],
+            ['Ana-María López', 'anamaria'],
+            ['O\'Connor James', 'oconnor'],
+            ['  Zoë Kravitz  ', 'zoe'],
+        ];
+
+        foreach ($cases as [$name, $expectedUsername]) {
+            $this->assertSame(
+                $expectedUsername,
+                VendedoresImport::usernameFromName($name),
+                "Unexpected normalized username for {$name}."
+            );
+        }
+    }
+
     public function test_template_sheet_headings_are_normalized_for_import(): void
     {
         $productRow = $this->prepareRow(new ProductosImport(), [

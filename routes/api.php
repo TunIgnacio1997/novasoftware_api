@@ -90,6 +90,8 @@ Route::prefix('/clientes')->group(function () {
 });
 
 //----- ventas
+
+Route::middleware(['auth:sanctum'])->group(function () {
 Route::get('ventas', [VentaController::class, 'getVentas']);
 Route::get('getVentaById', [VentaController::class, 'getVentaById']);
 Route::post('createVenta', [VentaController::class, 'store']);
@@ -99,6 +101,7 @@ Route::patch(
     '/ventas/{id}/cancelar',
     [VentaController::class, 'cancelar']
 );
+});
 
 //---- proveedor
 Route::prefix('/proveedores')->group(function () {

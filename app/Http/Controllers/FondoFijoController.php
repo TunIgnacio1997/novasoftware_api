@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\CorteCaja\ObtenerCalculadoAction;
 use App\Models\FondoFijo;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,13 @@ class FondoFijoController extends Controller
     // Muestra el estado de la caja inyectando los cálculos actuales de la fecha
     public function estadoCaja(Request $request, ObtenerCalculadoAction $calculador)
     {
-        $caja = FondoFijo::where('id_sucursal', $request->id_sucursal)
+        $data = $request->validate([
+            'id_sucursal' => ['required', 'integer', 'exists:sucursales,id'],
+        ]);
+
+        $userId = $request->user()->getAuthIdentifier();
+        $caja = FondoFijo::where('id_sucursal', $data['id_sucursal'])
+            ->where('id_usuario', $userId)
             ->where('estatus', true)
             ->first();
 
@@ -82,30 +89,37 @@ class FondoFijoController extends Controller
     // Apertura de caja
     public function abrirCaja(Request $request)
     {
-        $request->validate([
-            'id_sucursal' => 'required|integer',
+        $data = $request->validate([
+            'id_sucursal' => ['required', 'integer', 'exists:sucursales,id'],
             'efectivo_inicial' => 'required|numeric|min:0',
             'banco_inicial' => 'required|numeric|min:0',
         ]);
 
-        $cajaAbierta = FondoFijo::where('id_sucursal', $request->id_sucursal)
-            ->where('estatus', true)
-            ->exists();
+        $userId = $request->user()->getAuthIdentifier();
 
-        if ($cajaAbierta) {
-            return response()->json(['message' => 'Ya existe una caja abierta en esta sucursal.'], 422);
-        }
+        return DB::transaction(function () use ($data, $userId) {
+            User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
 
-        $caja = FondoFijo::create([
-            'id_sucursal' => $request->id_sucursal,
-            'id_usuario' => auth()->id() ?? 1,
-            'fecha_apertura' => Carbon::now(),
-            'efectivo_inicial' => $request->efectivo_inicial,
-            'banco_inicial' => $request->banco_inicial,
-            'estatus' => true // 1 = ABIERTA
-        ]);
+            $cajaAbierta = FondoFijo::where('id_usuario', $userId)
+                ->where('estatus', true)
+                ->exists();
 
-        return response()->json(['message' => 'Caja abierta con éxito', 'caja' => $caja], 201);
+            if ($cajaAbierta) {
+                return response()->json(['message' => 'Ya tienes una caja abierta.'], 422);
+            }
+
+            $caja = FondoFijo::create([
+                'id_sucursal' => $data['id_sucursal'],
+                'id_usuario' => $userId,
+                'fecha' => Carbon::today()->toDateString(),
+                'fecha_apertura' => Carbon::now(),
+                'efectivo_inicial' => $data['efectivo_inicial'],
+                'banco_inicial' => $data['banco_inicial'],
+                'estatus' => true,
+            ]);
+
+            return response()->json(['message' => 'Caja abierta con éxito', 'caja' => $caja], 201);
+        });
     }
     public function historial(Request $request)
     {

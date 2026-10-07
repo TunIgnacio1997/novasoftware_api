@@ -22,23 +22,10 @@ class CatalogImportService
     public function import(string $filePath): void
     {
         try {
-            $reader = IOFactory::createReaderForFile($filePath);
-            $sheetNames = $reader->listWorksheetNames($filePath);
+            $sheetNames = IOFactory::load($filePath)->getSheetNames();
 
             DB::transaction(function () use ($filePath, $sheetNames) {
-                $hasCashPaymentType = TipoPago::query()
-                    ->where('descripcion', 'Efectivo')
-                    ->orWhere('descripcion2', 'Efectivo')
-                    ->exists();
-
-                if (! $hasCashPaymentType) {
-                    TipoPago::create([
-                        'descripcion' => 'Efectivo',
-                        'descripcion2' => 'Efectivo',
-                        'controlado' => 1,
-                        'orden' => 1,
-                    ]);
-                }
+                $this->ensurePaymentTypes();
 
                 foreach ([
                     ['descripcion' => 'Proceso', 'tipo' => 'venta'],
@@ -59,6 +46,55 @@ class CatalogImportService
                 'El archivo no es un libro Excel válido o está dañado.',
                 previous: $exception
             );
+        }
+    }
+
+    private function ensurePaymentTypes(): void
+    {
+        foreach ([
+            1 => 'EFECTIVO',
+            2 => 'ANTICIPO',
+            3 => 'CHEQUE',
+            4 => 'TARJETA',
+            5 => 'TRANSFERENCIA',
+            6 => 'VALES',
+        ] as $id => $description) {
+            $paymentType = TipoPago::query()->find($id);
+
+            if ($paymentType) {
+                $existingDescriptions = [
+                    strtoupper(trim((string) $paymentType->descripcion)),
+                    strtoupper(trim((string) $paymentType->descripcion2)),
+                ];
+
+                if (! in_array($description, $existingDescriptions, true)) {
+                    throw new CatalogImportException(
+                        "No se puede asignar {$description} al ID {$id}: ese ID ya pertenece a otro tipo de pago."
+                    );
+                }
+            } else {
+                $duplicate = TipoPago::query()
+                    ->where(function ($query) use ($description) {
+                        $query->where('descripcion', $description)
+                            ->orWhere('descripcion2', $description);
+                    })
+                    ->first();
+
+                if ($duplicate) {
+                    throw new CatalogImportException(
+                        "No se puede asignar {$description} al ID {$id}: ya existe con el ID {$duplicate->id}."
+                    );
+                }
+
+                $paymentType = new TipoPago();
+                $paymentType->id = $id;
+            }
+
+            $paymentType->descripcion = $description;
+            $paymentType->descripcion2 = $description;
+            $paymentType->controlado = 1;
+            $paymentType->orden = $id;
+            $paymentType->save();
         }
     }
 }

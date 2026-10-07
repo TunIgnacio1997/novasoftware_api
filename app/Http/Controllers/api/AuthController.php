@@ -16,20 +16,23 @@ class AuthController extends Controller
 {
     //
     public function register(Request $request) {
-        //alta del usuario
-        $user = new User();
-        $user->name = $request->name;
-        $user->user = $request->user;
-        $user->email_verified_at = $request->email;
-        $user->password = Hash::make($request->password);
-        $user->sucursal_id = $request->sucursal;
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'user' => ['required', 'string', 'max:255', 'unique:users,user'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required_without:rol_id', 'integer', 'exists:roles,id'],
+            'rol_id' => ['required_without:role', 'integer', 'exists:roles,id'],
+            'sucursal' => ['required', 'integer', 'exists:sucursales,id'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
 
-        if ($request->has('rol_id')) {
-            $request->validate([
-                'rol_id' => ['required', 'integer', 'exists:roles,id'],
-            ]);
-            $user->rol_id = $request->rol_id;
-        }
+        $user = new User();
+        $user->name = $data['name'];
+        $user->user = $data['user'];
+        $user->email = $data['email'];
+        $user->password = Hash::make($data['password']);
+        $user->sucursal_id = $data['sucursal'];
+        $user->rol_id = $data['role'] ?? $data['rol_id'];
 
         $user->save();
 
@@ -81,7 +84,7 @@ class AuthController extends Controller
     public function userProfile(Request $request) {
         return response()->json([
             "message" => "userProfile OK",
-            "userData" => auth()->user()
+            "userData" => Auth::user()
         ], Response::HTTP_OK);
     }
 
@@ -91,7 +94,32 @@ class AuthController extends Controller
     }
 
     public function allUsers(Request $request) {
-    $users = User::with(['rol', 'sucursal'])->orderBy('id', 'desc')->paginate($request->itemPage);
-       return response()->json($users);
+        $filters = $request->validate([
+            'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'itemPage' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100'],
+            'sort' => ['sometimes', 'nullable', 'integer', 'in:0,1'],
+            'id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'sucursal_id' => ['sometimes', 'nullable', 'integer', 'min:1', 'exists:sucursales,id'],
+        ]);
+
+        $query = User::with(['rol', 'sucursal'])
+            ->when(isset($filters['id']), fn ($query) => $query->whereKey($filters['id']))
+            ->when(
+                !empty($filters['name']),
+                fn ($query) => $query->where('name', 'like', '%' . $filters['name'] . '%')
+            )
+            ->when(
+                isset($filters['sucursal_id']),
+                fn ($query) => $query->where('sucursal_id', $filters['sucursal_id'])
+            )
+            ->orderBy('id', (int) ($filters['sort'] ?? 0) === 1 ? 'asc' : 'desc');
+
+        return response()->json($query->paginate(
+            $filters['itemPage'] ?? 10,
+            ['*'],
+            'page',
+            $filters['page'] ?? 1
+        ));
     }
 }

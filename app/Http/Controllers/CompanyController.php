@@ -40,7 +40,7 @@ class CompanyController extends Controller
     }
     public function checkCompanyOnboarding(Request $request){
         $comp = Company::query()->first();
-        $superAdmin = User::where('rol_id', 0)->first();
+        $superAdmin = User::where('rol_id', 1)->first();
         $sucursalMatriz = Sucursal::where('nombre', 'Matriz')->first();
         $superAdminHasMatriz = $superAdmin
             && $sucursalMatriz
@@ -61,7 +61,7 @@ class CompanyController extends Controller
     {
         $company = Company::query()->first();
         $companyConfigured = $company && !empty($company->conceptnamecompany);
-        $superAdminExists = User::where('rol_id', 0)->exists();
+        $superAdminExists = User::where('rol_id', 1)->exists();
 
         $data = $request->validate([
             'companyName' => [Rule::requiredIf(!$companyConfigured), 'nullable', 'string', 'max:255'],
@@ -79,18 +79,18 @@ class CompanyController extends Controller
             'regimen' => ['nullable', 'string', 'max:255'],
             'name' => [Rule::requiredIf(!$superAdminExists), 'nullable', 'string', 'max:255'],
             'user' => [Rule::requiredIf(!$superAdminExists), 'nullable', 'string', 'max:255', 'unique:users,user'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => [Rule::requiredIf(!$superAdminExists), 'nullable', 'email', 'max:255'],
             'password' => [Rule::requiredIf(!$superAdminExists), 'nullable', 'string', 'min:8'],
             'excel_file' => ['nullable', 'file', 'mimes:xlsx,xls', 'max:20480'],
         ]);
 
         try {
             $result = DB::transaction(function () use ($data, $request, $catalogImportService) {
-                Role::whereKey(0)->lockForUpdate()->firstOrFail();
+                Role::whereKey(1)->lockForUpdate()->firstOrFail();
 
                 $company = Company::query()->lockForUpdate()->first();
                 $companyConfigured = $company && !empty($company->conceptnamecompany);
-                $superAdmin = User::where('rol_id', 0)->lockForUpdate()->first();
+                $superAdmin = User::where('rol_id', 1)->lockForUpdate()->first();
                 $logo = $request->hasFile('logo')
                     ? $request->file('logo')->store('logos', 'public')
                     : ($data['logo'] ?? null);
@@ -125,10 +125,10 @@ class CompanyController extends Controller
                     $superAdmin = User::create([
                         'name' => $data['name'],
                         'user' => $data['user'],
-                        'email_verified_at' => $data['email'] ?? null,
+                        'email' => $data['email'],
                         'password' => Hash::make($data['password']),
                         'sucursal_id' => $sucursalMatriz->id,
-                        'rol_id' => 0,
+                        'rol_id' => 1,
                     ]);
                 }
 

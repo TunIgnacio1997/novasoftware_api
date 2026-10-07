@@ -35,10 +35,7 @@ class SubFamiliasImport implements ToModel, WithHeadingRow, WithValidation, Skip
             ['comision' => 0]
         );
 
-        return SubFamilia::updateOrCreate(
-            ['nombre' => $nombre],
-            ['id_familia' => $familia->id]
-        );
+        return SubFamilia::firstOrCreateForFamily($nombre, (int) $familia->id);
     }
 
     public function rules(): array

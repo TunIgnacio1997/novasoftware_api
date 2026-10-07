@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -45,7 +46,7 @@ class VentaController extends Controller
 
     public function getVentas(Request $request)
     {
-        return Venta::with([
+        return $this->ventasVisibles($request)->with([
                 'vendedorPorUsuario',
                 'sucursal',
                 'cliente',
@@ -63,14 +64,17 @@ class VentaController extends Controller
     }
 
     public function getVentaById(Request $request) {
-        $venta = Venta::with('vendedorPorUsuario')->with('sucursal')->with('cliente')->with('estatus')->orderBy('id_venta', 'desc')->where('id_venta', $request->id_venta)->first();
+        $venta = $this->ventasVisibles($request)
+            ->with(['vendedorPorUsuario', 'sucursal', 'cliente', 'estatus'])
+            ->where('id_venta', $request->id_venta)
+            ->firstOrFail();
         $productos= DetalleVenta::where('id_venta', $request->id_venta)->get();
         return response()->json(['venta'=> $venta, 'productos'=>$productos], 200);
     }
 
-    public function getDetalleVenta(int $id)
+    public function getDetalleVenta(Request $request, int $id)
     {
-        $venta = Venta::with([
+        $venta = $this->ventasVisibles($request)->with([
             'cliente',
             'estatus',
             'sucursal',
@@ -83,7 +87,7 @@ class VentaController extends Controller
 
     public function getCalculado(Request $request, ObtenerCalculadoAction $action)
     {
-        $user = auth()->user();
+        $user = $request->user();
 
         $calculado = $action->execute(
             fecha:       $request->fecha ?? now()->toDateString(),
@@ -118,6 +122,7 @@ class VentaController extends Controller
     Request $request,
     CancelarVentaAction $action
     ) {
+        $this->ventasVisibles($request)->whereKey($id)->firstOrFail();
         $action->execute($id, $request->motivo ?? 'Sin motivo especificado');
 
         return response()->json([
@@ -125,9 +130,9 @@ class VentaController extends Controller
         ]);
     }
 
-    public function descargarTicket(int $id)
+    public function descargarTicket(Request $request, int $id)
     {
-        $venta = Venta::with([
+        $venta = $this->ventasVisibles($request)->with([
             'cliente',
             'estatus',
             'sucursal',
@@ -140,5 +145,18 @@ class VentaController extends Controller
                 ->setPaper([0, 0, 240, 600], 'portrait'); // 226.77 pt ≈ 80mm
 
         return $pdf->stream('Ticket_' . $venta->folio_venta . '.pdf');
+    }
+
+    private function ventasVisibles(Request $request): Builder
+    {
+        $user = $request->user();
+        $roleName = strtolower(trim($user->rol?->nombre ?? ''));
+
+        $query = Venta::query();
+        if (! in_array($roleName, ['admin', 'administrador', 'super admin', 'super administrador'], true)) {
+            $query->where('id_usuario', $user->getAuthIdentifier());
+        }
+
+        return $query;
     }
 }

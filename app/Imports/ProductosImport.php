@@ -72,26 +72,20 @@ class ProductosImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
             ['comision' => 0]
         );
         $subFamiliaNombre = trim((string) ($row['sub_familia'] ?? ''));
-        $subFamilia = SubFamilia::where('nombre', $subFamiliaNombre)
-            ->where(fn ($q) => $q->where('id_familia', $familia->id)->orWhereNull('id_familia'))
-            ->orderByRaw('id_familia is null')
-            ->first();
-        if ($subFamilia && $subFamilia->id_familia === null) {
-            $subFamilia->update(['id_familia' => $familia->id]);
-        }
-        if (! $subFamilia) {
-            throw new CatalogImportException(
-                "Producto '{$itemNumber}': la subfamilia '{$subFamiliaNombre}' no pertenece a la familia '{$familia->nombre}'."
-            );
-        }
+        $subFamilia = SubFamilia::firstOrCreateForFamily($subFamiliaNombre, (int) $familia->id);
 
         $subSubFamiliaNombre = trim((string) ($row['sub_sub_familia'] ?? ''));
         $subSubFamilia = null;
         if ($subSubFamiliaNombre !== '') {
-            $subSubFamilia = SubSubFamilia::where('nombre', $subSubFamiliaNombre)
-                ->where('id_sub_familia', $subFamilia->id)
-                ->first();
+            $subSubFamilia = SubSubFamilia::where('nombre', $subSubFamiliaNombre)->first();
             if (! $subSubFamilia) {
+                $subSubFamilia = SubSubFamilia::create([
+                    'nombre' => $subSubFamiliaNombre,
+                    'id_sub_familia' => $subFamilia->id,
+                ]);
+            } elseif ($subSubFamilia->id_sub_familia === null) {
+                $subSubFamilia->update(['id_sub_familia' => $subFamilia->id]);
+            } elseif ((int) $subSubFamilia->id_sub_familia !== (int) $subFamilia->id) {
                 throw new CatalogImportException(
                     "Producto '{$itemNumber}': la sub-subfamilia '{$subSubFamiliaNombre}' no pertenece a la subfamilia '{$subFamiliaNombre}'."
                 );
@@ -108,9 +102,19 @@ class ProductosImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
                 ->orWhere('nombre_comercial', $proveedorNombre)
                 ->first();
             if (! $proveedor) {
-                throw new CatalogImportException(
-                    "Producto '{$itemNumber}': no existe el proveedor '{$proveedorNombre}'."
-                );
+                $proveedor = Proveedor::create([
+                    'num_proveedor' => (string) ((int) Proveedor::max('id') + 1),
+                    'razon_social' => $proveedorNombre,
+                    'nombre_comercial' => $proveedorNombre,
+                    'rfc' => '',
+                    'curp' => '',
+                    'credito' => 0,
+                    'dias' => 0,
+                    'tiempo_entrega' => 0,
+                    'bloqueo' => false,
+                    'id_company' => 1,
+                    'estatus' => 1,
+                ]);
             }
         }
 
