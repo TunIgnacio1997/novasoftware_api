@@ -23,6 +23,7 @@ class Cliente extends Model
         'telef2',
         'email',
         'credito',
+        'plazo',
         'pagos',
         'tipo',
         'saldo',

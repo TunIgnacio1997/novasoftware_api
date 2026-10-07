@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AlmacenController;
+use App\Http\Controllers\CatalogImportController;
 use App\Http\Controllers\api\AuthController;
 use App\Http\Controllers\api\ActivityController;
 use App\Http\Controllers\api\ClienteController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\GastoController;
 use App\Http\Controllers\EntradaController;
 use App\Http\Controllers\FondoFijoController;
 use App\Http\Controllers\QuotationController;
+use App\Http\Controllers\RoleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -59,6 +61,17 @@ Route::group(['middleware' => ['auth:sanctum']], function(){
 
 Route::get('users', [AuthController::class, 'allUsers']);
 
+Route::get('company/onboarding', [CompanyController::class, 'checkCompanyOnboarding']);
+Route::post('company/onboarding', [CompanyController::class, 'onboarding']);
+
+Route::middleware(['auth:sanctum'])->prefix('roles')->group(function () {
+    Route::get('/', [RoleController::class, 'index']);
+    Route::post('/', [RoleController::class, 'store']);
+    Route::get('/{role}', [RoleController::class, 'show']);
+    Route::match(['put', 'patch'], '/{role}', [RoleController::class, 'update']);
+    Route::delete('/{role}', [RoleController::class, 'destroy']);
+});
+
 //----- producto
 Route::get('buscarProducto', [ProductsController::class, 'buscarProducto']);
 Route::get('buscarProductoVenta', [ProductsController::class, 'buscarProductoVenta']);
@@ -77,6 +90,8 @@ Route::prefix('/clientes')->group(function () {
 });
 
 //----- ventas
+
+Route::middleware(['auth:sanctum'])->group(function () {
 Route::get('ventas', [VentaController::class, 'getVentas']);
 Route::get('getVentaById', [VentaController::class, 'getVentaById']);
 Route::post('createVenta', [VentaController::class, 'store']);
@@ -86,6 +101,7 @@ Route::patch(
     '/ventas/{id}/cancelar',
     [VentaController::class, 'cancelar']
 );
+});
 
 //---- proveedor
 Route::prefix('/proveedores')->group(function () {
@@ -105,21 +121,27 @@ Route::prefix('/cobratarios')->group(function () {
 //---- almacen
 Route::get('getAlmacenes', [AlmacenController::class, 'getAlmacenes']);
 
+//---- carga inicial de catalogos
+Route::post('catalogos/importar', [CatalogImportController::class, 'import']);
+
 // unidad de medida
 Route::get('getUnidadesMedida', [UnidadMedidaController::class, 'getUnidadesMedida']);
 Route::get('getUnidadesAll', [UnidadMedidaController::class, 'getUnidadesAll']);
 Route::post('addUnidadesMedida', [UnidadMedidaController::class, 'addUnidadesMedida']);
 Route::post('updateUnidadesMedida', [UnidadMedidaController::class, 'updateUnidadesMedida']);
+Route::delete('deleteUnidadesMedida', [UnidadMedidaController::class, 'deleteUnidadesMedida']);
 //familias
 Route::get('getFamilias', [FamiliasController::class , 'getFamilias']);
 Route::get('getFamiliasAll', [FamiliasController::class , 'getFamiliasAll']);
 Route::post('addFamilia', [FamiliasController::class, 'addFamilia']);
 Route::post('updateFamilia', [FamiliasController::class, 'updateFamilia']);
+Route::delete('deleteFamilia', [FamiliasController::class, 'deleteFamilia']);
 //subfamilia
 Route::get('getSubFamilias', [SubFamiliasController::class , 'getSubFamilias']);
 Route::get('getSubFamiliasAll', [SubFamiliasController::class , 'getSubFamiliasAll']);
 Route::post('addSubFamilia', [SubFamiliasController::class, 'addSubFamilia']);
 Route::post('updateSubFamilia', [SubFamiliasController::class, 'updateSubFamilia']);
+Route::delete('deleteSubFamilia', [SubFamiliasController::class, 'deleteSubFamilia']);
 //estatus
 Route::get('getEstatus', [EstatusController::class, 'getEstatus']);
 Route::post('addEstatus', [EstatusController::class, 'addEstatus']);
@@ -136,6 +158,7 @@ Route::post('updateVendedor', [VendedorController::class, 'updateVendedor']);
 Route::get('getTiposPagoAll', [TiposPagoController::class, 'getTiposPagoAll']);
 Route::post('createTipoPago', [TiposPagoController::class, 'create']);
 Route::post('updateTipoPago', [TiposPagoController::class, 'update']);
+Route::delete('deleteTipoPago', [TiposPagoController::class, 'delete']);
 
 //orden compra
 Route::get('getOrdenesCompra', [OrdenCompraController::class, 'store']);

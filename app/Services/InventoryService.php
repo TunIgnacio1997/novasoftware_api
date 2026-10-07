@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Existencia;
 use App\Models\Producto;
+use DomainException;
 use Exception;
 
 class InventoryService
@@ -75,14 +76,20 @@ class InventoryService
                 'id_producto' => $idProducto,
                 'id_almacen' => $idAlmacen
             ])
-            ->firstOrFail();
+            ->first();
+
+        if (! $existencia) {
+            throw new DomainException(
+                'No existe inventario para el producto en el almacén de la orden.'
+            );
+        }
 
         $anterior = $existencia->cantidad;
 
         if ($tipo === 'COMPRA') {
 
             if ($existencia->cantidad < $cantidad) {
-                throw new Exception(
+                throw new DomainException(
                     'Existencia insuficiente para devolución'
                 );
             }

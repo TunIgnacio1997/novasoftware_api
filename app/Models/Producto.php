@@ -9,18 +9,29 @@ class Producto extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $table = 'productos';
 
         protected $fillable = [
             'item_name',
-            'codigo',
-            'descripcion',
-            'precio',
-            'id_categoria',
-            'id_marca',
+            'item_number',
+            'description',
+            'unit_m',
+            'buy_price',
+            'unit_price',
+            'familia',
+            'sub_familia',
+            'sub_sub_familia',
+            'id_familia',
+            'id_sub_familia',
+            'id_sub_sub_familia',
             'id_unidad_medida',
-            'id_sucursal',
-            'id_almacen'
+            'supplier_id',
+            'maximo',
+            'minimo',
+            'location',
+            'allow_core',
         ];
     protected $appends = ['stock'];
 

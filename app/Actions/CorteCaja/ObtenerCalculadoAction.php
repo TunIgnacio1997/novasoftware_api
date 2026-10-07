@@ -15,12 +15,34 @@ class ObtenerCalculadoAction
 
     public function execute(string $fecha, int $idSucursal, ?int $idUsuario = null): array
     {
+        $estatusCanceladoVenta = DB::table('estatus')
+            ->where('descripcion', 'Cancelado')
+            ->where('tipo', 'venta')
+            ->value('id');
+
+        if ($estatusCanceladoVenta === null) {
+            throw new \RuntimeException(
+                'No existe el estatus "Cancelado" para "venta" en el catálogo.'
+            );
+        }
+
+        $estatusCompletadoCompra = DB::table('estatus')
+            ->where('descripcion', 'Completado')
+            ->where('tipo', 'compra')
+            ->value('id');
+
+        if ($estatusCompletadoCompra === null) {
+            throw new \RuntimeException(
+                'No existe el estatus "Completado" para "compra" en el catálogo.'
+            );
+        }
+
         // 1. VENTAS
         $ventas = DB::table('detalle_venta_pago')
             ->join('ventas', 'ventas.id_venta', '=', 'detalle_venta_pago.id_venta')
             ->whereDate('detalle_venta_pago.fecha', $fecha)
             ->where('ventas.id_sucursal', $idSucursal)
-            ->where('ventas.id_estatus', '!=', 3)
+            ->whereNotIn('ventas.id_estatus', [0, $estatusCanceladoVenta])
             ->when($idUsuario, fn($q) => $q->where('ventas.id_usuario', $idUsuario))
             ->select('detalle_venta_pago.id_metodo as tipo_pago', DB::raw('SUM(detalle_venta_pago.monto_aplicado) as total'))
             ->groupBy('detalle_venta_pago.id_metodo')
@@ -72,7 +94,7 @@ class ObtenerCalculadoAction
         $compras = DB::table('ordenes_compra')
             ->whereBetween('fecha_recepcion', [$fecha . ' 00:00:00', $fecha . ' 23:59:59'])
             ->where('id_sucursal', $idSucursal)
-            ->where('id_estatus', 3)
+            ->where('id_estatus', $estatusCompletadoCompra)
             ->when($idUsuario, fn($q) => $q->where('id_usuario', $idUsuario))
             ->select('id_tipo_pago as tipo_pago', DB::raw('SUM(importe) as total'))
             ->groupBy('id_tipo_pago')

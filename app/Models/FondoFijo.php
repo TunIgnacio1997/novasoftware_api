@@ -15,6 +15,7 @@ class FondoFijo extends Model
         'id_sucursal',
         'id_usuario',
         'estatus',
+        'fecha',
         'fecha_apertura',
         'fecha_cierre',
         'efectivo_inicial',

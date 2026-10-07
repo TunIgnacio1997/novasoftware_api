@@ -15,8 +15,11 @@ class User extends Authenticatable
     protected $table = 'users';
     protected $fillable = [
         'name',
+        'user',
         'email',
         'password',
+        'rol_id',
+        'sucursal_id',
     ];
     protected $hidden = [
         'password',
@@ -25,6 +28,11 @@ class User extends Authenticatable
 
     public function sucursal() {
         return $this->belongsTo(Sucursal::class, 'sucursal_id');
+    }
+
+    public function rol()
+    {
+        return $this->belongsTo(Role::class, 'rol_id');
     }
 
     public function vendedor()

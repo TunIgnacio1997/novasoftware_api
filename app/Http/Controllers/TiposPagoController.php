@@ -39,4 +39,16 @@ class TiposPagoController extends Controller
             return response(['mensaje'=>'El tipo de pago no se guardo', 'success'=>false], 400);
         }
     }
+
+    public function delete(Request $request){
+        $tp = TipoPago::find($request->id);
+
+        if (!$tp) {
+            return response(['mensaje'=>'El tipo de pago no existe', 'success'=>false], 404);
+        }
+
+        $tp->delete();
+
+        return response(['mensaje'=>'El tipo de pago se elimino con exito', 'success'=>true], 200);
+    }
 }

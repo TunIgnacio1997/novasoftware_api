@@ -36,4 +36,23 @@ class FamiliasController extends Controller
             return response(['mensaje'=>'La famila no se pudo registrar', 'success'=>false], 404);
         }
     }
+
+    public function deleteFamilia(Request $request){
+        $familia = Familias::find($request->id);
+
+        if (!$familia) {
+            return response(['mensaje'=>'La familia no existe', 'success'=>false], 404);
+        }
+
+        if ($familia->subFamilias()->exists()) {
+            return response([
+                'mensaje'=>'No se puede eliminar la familia porque tiene subfamilias asociadas',
+                'success'=>false,
+            ], 409);
+        }
+
+        $familia->delete();
+
+        return response(['mensaje'=>'La familia se elimino con exito', 'success'=>true], 200);
+    }
 }
