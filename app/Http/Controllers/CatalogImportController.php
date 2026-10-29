@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Excel as ExcelType;
 use Maatwebsite\Excel\Validators\ValidationException as ExcelValidationException;
 
 class CatalogImportController extends Controller
@@ -30,9 +31,13 @@ class CatalogImportController extends Controller
         }
 
         try {
-            $path = $request->file('excel_file')->getRealPath();
+            $file = $request->file('excel_file');
+            $path = $file->getRealPath();
+            $readerType = strtolower($file->getClientOriginalExtension()) === 'xls'
+                ? ExcelType::XLS
+                : ExcelType::XLSX;
 
-            $this->catalogImportService->import($path);
+            $this->catalogImportService->import($path, $readerType);
 
             return response()->json([
                 'success' => true,

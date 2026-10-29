@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -14,14 +14,16 @@ return new class extends Migration
     {
         Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('nombre')->unique();
+            $table->unsignedSmallInteger('company_id')->nullable()->index();
+            $table->string('name', 100);
+            $table->unique(['company_id', 'name']);
             $table->timestamps();
         });
-        // 2. Ejecutar el seeder automáticamente después de crear la tabla
-            Artisan::call('db:seed', [
-                '--class' => 'RoleSeeder',
-                '--force' => true // Permite correrlo en entornos de producción
-            ]);
+
+        Artisan::call('db:seed', [
+            '--class' => 'RoleSeeder',
+            '--force' => true,
+        ]);
     }
 
     /**

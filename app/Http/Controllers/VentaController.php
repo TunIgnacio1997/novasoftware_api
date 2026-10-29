@@ -150,7 +150,7 @@ class VentaController extends Controller
     private function ventasVisibles(Request $request): Builder
     {
         $user = $request->user();
-        $roleName = strtolower(trim($user->rol?->nombre ?? ''));
+        $roleName = strtolower(trim($user->rol?->name ?? ''));
 
         $query = Venta::query();
         if (! in_array($roleName, ['admin', 'administrador', 'super admin', 'super administrador'], true)) {

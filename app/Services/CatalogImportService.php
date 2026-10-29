@@ -7,6 +7,7 @@ use App\Imports\CatalogosImport;
 use App\Models\Estatus;
 use App\Models\TipoPago;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Excel as ExcelType;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as SpreadsheetReaderException;
@@ -19,38 +20,38 @@ class CatalogImportService
      *
      * @throws \Throwable
      */
-    public function import(string $filePath): void
-{
-    try {
-        // Detecta el formato por contenido (devuelve 'Xlsx', 'Xls', 'Csv', 'Ods'...)
-        $readerType = IOFactory::identify($filePath);
-        $sheetNames = IOFactory::load($filePath)->getSheetNames();
+    public function import(
+        string $path,
+        string $readerType = ExcelType::XLSX
+    ): void {
+        try {
+            $sheetNames = IOFactory::load($path)->getSheetNames();
 
-        DB::transaction(function () use ($filePath, $sheetNames, $readerType) {
-            $this->ensurePaymentTypes();
+            DB::transaction(function () use ($path, $readerType, $sheetNames) {
+                $this->ensurePaymentTypes();
 
-            foreach ([
-                ['descripcion' => 'Proceso', 'tipo' => 'venta'],
-                ['descripcion' => 'Proceso', 'tipo' => 'compra'],
-                ['descripcion' => 'Completado', 'tipo' => 'venta'],
-                ['descripcion' => 'Completado', 'tipo' => 'compra'],
-                ['descripcion' => 'Cancelado', 'tipo' => 'venta'],
-                ['descripcion' => 'Cancelado', 'tipo' => 'compra'],
-                ['descripcion' => 'Recibido', 'tipo' => 'compra'],
-            ] as $statusAttributes) {
-                Estatus::query()->firstOrCreate($statusAttributes);
-            }
+                foreach ([
+                    ['descripcion' => 'Proceso', 'tipo' => 'venta'],
+                    ['descripcion' => 'Proceso', 'tipo' => 'compra'],
+                    ['descripcion' => 'Completado', 'tipo' => 'venta'],
+                    ['descripcion' => 'Completado', 'tipo' => 'compra'],
+                    ['descripcion' => 'Cancelado', 'tipo' => 'venta'],
+                    ['descripcion' => 'Cancelado', 'tipo' => 'compra'],
+                    ['descripcion' => 'Recibido', 'tipo' => 'compra'],
+                ] as $statusAttributes) {
+                    Estatus::query()->firstOrCreate($statusAttributes);
+                }
 
-            // Tercer argumento: disco (null = ruta local). Cuarto: tipo explícito.
-            Excel::import(new CatalogosImport($sheetNames), $filePath, null, $readerType);
-        });
-    } catch (SpreadsheetReaderException $exception) {
-        throw new CatalogImportException(
-            'El archivo no es un libro Excel válido o está dañado.',
-            previous: $exception
-        );
+                $import = new CatalogosImport($sheetNames);
+                Excel::import($import, $path, null, $readerType);
+            });
+        } catch (SpreadsheetReaderException $exception) {
+            throw new CatalogImportException(
+                'El archivo no es un libro Excel válido o está dañado.',
+                previous: $exception
+            );
+        }
     }
-}
 
     private function ensurePaymentTypes(): void
     {

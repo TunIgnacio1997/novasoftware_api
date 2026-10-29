@@ -72,7 +72,7 @@ class VendedoresImport implements ToModel, WithHeadingRow, WithValidation, Skips
                 );
             }
 
-            $this->sellerRole ??= Role::where('nombre', 'Vendedor')->first();
+            $this->sellerRole ??= Role::where('name', 'Vendedor')->first();
             if (! $this->sellerRole) {
                 throw new CatalogImportException(
                     'No está configurado el rol Vendedor; no se pueden importar vendedores.'

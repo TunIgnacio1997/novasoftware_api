@@ -9,9 +9,11 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\CatalogImportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Excel as ExcelType;
 use Maatwebsite\Excel\Validators\ValidationException as ExcelValidationException;
 
 class CompanyController extends Controller
@@ -20,24 +22,42 @@ class CompanyController extends Controller
     public function getCompanyInfo(Request $request){
         return Company::query()->first();
     }
-    public function create(Request $request){
-        $comp = Company::query()->first();
-        $comp ??= new Company();
-        $comp->conceptnamecompany = $request->companyName;
-        $comp->mail = $request->correo;
-        $comp->url = '';
-        $comp->logo = $request->logo;
-        $comp->access_key  = '';
-        $comp->direccion = $request->direccion;
-        $comp->iva = 16.0;
-        $comp->rfc = $request->rfc;
-        $comp->regimen_fiscal = $request->regimen;
-        if ($comp->update()) {
-            return response(['mensaje'=>'Los datos de la compania se guardaron correctamente', 'success'=>true], 200);
-        } else {
-            return response(['mensaje'=>'Ocurrio un error al guardar datos', 'success'=>false], 404);
+    public function create(Request $request)
+{
+    $request->validate([
+        'logo' => 'nullable|image|max:2048',
+    ]);
+
+    $company = Company::first() ?? new Company();
+
+    $company->fill([
+        'conceptnamecompany' => $request->companyName,
+        'mail'               => $request->correo,
+        'url'                => '',
+        'access_key'         => '',
+        'direccion'          => $request->direccion,
+        'iva'                => 16.0,
+        'rfc'                => $request->rfc,
+        'regimen_fiscal'     => $request->regimen,
+    ]);
+
+    if ($request->hasFile('logo')) {
+        // Elimina el logo anterior para no acumular archivos huérfanos
+        if ($company->logo) {
+            Storage::disk('public')->delete($company->logo);
         }
+
+        // Guarda en storage/app/public/logos y devuelve "logos/xxxx.png"
+        $company->logo = $request->file('logo')->store('logos', 'public');
     }
+
+    $company->save();
+
+    return response([
+        'mensaje' => 'Los datos de la compania se guardaron correctamente',
+        'success' => true,
+    ], 200);
+}
     public function checkCompanyOnboarding(Request $request){
         $comp = Company::query()->first();
         $superAdmin = User::where('rol_id', 1)->first();
@@ -143,7 +163,12 @@ class CompanyController extends Controller
 
                 $catalogsImported = false;
                 if ($request->hasFile('excel_file')) {
-                    $catalogImportService->import($request->file('excel_file')->getRealPath());
+                    $file = $request->file('excel_file');
+                    $readerType = strtolower($file->getClientOriginalExtension()) === 'xls'
+                        ? ExcelType::XLS
+                        : ExcelType::XLSX;
+
+                    $catalogImportService->import($file->getRealPath(), $readerType);
                     $catalogsImported = true;
                 }
 

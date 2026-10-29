@@ -43,14 +43,28 @@ class AuthController extends Controller
     {
         $user = User::findOrFail($id);
 
-        $user->name = $request->name;
-        $user->user = $request->user;
-        $user->email_verified_at = $request->email;
-        $user->sucursal_id = $request->sucursal;
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'user' => ['required', 'string', 'max:255', 'unique:users,user,' . $user->id],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'role' => ['sometimes', 'integer', 'exists:roles,id'],
+            'rol_id' => ['sometimes', 'integer', 'exists:roles,id'],
+            'sucursal' => ['required', 'integer', 'exists:sucursales,id'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user->name = $data['name'];
+        $user->user = $data['user'];
+        $user->email = $data['email'];
+        $user->sucursal_id = $data['sucursal'];
+
+        if (isset($data['role']) || isset($data['rol_id'])) {
+            $user->rol_id = $data['role'] ?? $data['rol_id'];
+        }
 
         // Solo actualizar password si viene
-        if (!empty($request->password)) {
-            $user->password = Hash::make($request->password);
+        if (!empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
         }
 
         $user->save();
@@ -71,7 +85,8 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = Auth::user()->load(['rol', 'sucursal', 'vendedor']);
+        /** @var User $user */
+        $user = User::with(['rol', 'sucursal', 'vendedor'])->findOrFail(Auth::id());
 
         $token = $user->createToken('token')->plainTextToken;
 

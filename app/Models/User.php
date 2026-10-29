@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -18,6 +19,7 @@ class User extends Authenticatable
         'user',
         'email',
         'password',
+        'role_id',
         'rol_id',
         'sucursal_id',
     ];
@@ -30,9 +32,26 @@ class User extends Authenticatable
         return $this->belongsTo(Sucursal::class, 'sucursal_id');
     }
 
-    public function rol()
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function rol(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'rol_id');
+    }
+
+    public function hasPermission(string $module, string $action): bool
+    {
+        if (! in_array($action, ['view', 'create', 'edit', 'delete'], true)) {
+            return false;
+        }
+
+        $role = $this->role ?? $this->rol;
+        $permission = $role?->permissions()->where('module', $module)->first();
+
+        return $permission !== null && (bool) $permission->getAttribute($action);
     }
 
     public function vendedor()

@@ -43,7 +43,7 @@ Route::get('/user', function (Request $request) {
 
 Route::post('login', [AuthController::class, 'login'])->name('login');
 Route::post('register', [AuthController::class, 'register']);
-Route::post('updateUser/{id}', [AuthController::class, 'update']);
+Route::match(['post', 'put', 'patch'], 'updateUser/{id}', [AuthController::class, 'update']);
 
 Route::group(['middleware' => ['auth:sanctum']], function(){
     Route::get('user-profile', [AuthController::class, 'userProfile']);
@@ -64,13 +64,15 @@ Route::get('users', [AuthController::class, 'allUsers']);
 Route::get('company/onboarding', [CompanyController::class, 'checkCompanyOnboarding']);
 Route::post('company/onboarding', [CompanyController::class, 'onboarding']);
 
-Route::middleware(['auth:sanctum'])->prefix('roles')->group(function () {
-    Route::get('/', [RoleController::class, 'index']);
-    Route::post('/', [RoleController::class, 'store']);
-    Route::get('/{role}', [RoleController::class, 'show']);
-    Route::match(['put', 'patch'], '/{role}', [RoleController::class, 'update']);
-    Route::delete('/{role}', [RoleController::class, 'destroy']);
-});
+Route::prefix('roles')
+    ->middleware('auth:sanctum')
+    ->group(function () {
+        Route::get('/', [RoleController::class, 'index']);
+        Route::post('/', [RoleController::class, 'store']);
+        Route::get('/{role}', [RoleController::class, 'show']);
+        Route::match(['put', 'patch'], '/{role}', [RoleController::class, 'update']);
+        Route::delete('/{role}', [RoleController::class, 'destroy']);
+    });
 
 //----- producto
 Route::get('buscarProducto', [ProductsController::class, 'buscarProducto']);
@@ -120,6 +122,11 @@ Route::prefix('/cobratarios')->group(function () {
 });
 //---- almacen
 Route::get('getAlmacenes', [AlmacenController::class, 'getAlmacenes']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('addAlmacen', [AlmacenController::class, 'store']);
+    Route::match(['post', 'put', 'patch'], 'updateAlmacen/{almacen}', [AlmacenController::class, 'update']);
+    Route::delete('deleteAlmacen/{almacen}', [AlmacenController::class, 'destroy']);
+});
 
 //---- carga inicial de catalogos
 Route::post('catalogos/importar', [CatalogImportController::class, 'import']);
@@ -175,6 +182,12 @@ Route::post('saveInfoCompany', [CompanyController::class, 'create']);
 
 Route::prefix('/sucursales')->group(function () {
     Route::get('/', [SucursalController::class, 'index']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/', [SucursalController::class, 'store']);
+        Route::match(['put', 'patch'], '/{sucursal}', [SucursalController::class, 'update']);
+        Route::delete('/{sucursal}', [SucursalController::class, 'destroy']);
+    });
 });
 
 Route::prefix('/productos')->group(function () {

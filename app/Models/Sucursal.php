@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sucursal extends Model
 {
@@ -16,6 +18,16 @@ class Sucursal extends Model
     protected $fillable = [
         'nombre', 'logo', 'slogan', 'background', 'tel', 'tel2', 'correo', 'direccion', 'colonia', 'ciudad', 'estado', 'id_company', 'id_fecha', 'id_usuario'
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'id_company', 'id');
+    }
+
+    public function almacenes(): HasMany
+    {
+        return $this->hasMany(Almacen::class, 'id_sucursal', 'id');
+    }
 
     protected static function booted(): void
     {

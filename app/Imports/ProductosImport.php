@@ -143,10 +143,23 @@ class ProductosImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
 
         $existenciaInicial = $this->toDecimal($row['existencia_inicial'] ?? null);
         if ($existenciaInicial !== null && $existenciaInicial > 0) {
-            $almacenesPrincipales = Almacen::where('principal', 1)->limit(2)->get(['clave']);
+            $almacenesQuery = Almacen::where('principal', 1);
+            if (isset($row['id_sucursal']) && $row['id_sucursal'] !== '') {
+                $almacenesQuery->where('id_sucursal', $row['id_sucursal']);
+            }
+
+            $almacenesPrincipales = $almacenesQuery->limit(2)->get(['clave']);
             if ($almacenesPrincipales->count() !== 1) {
+                if (isset($row['id_sucursal']) && $row['id_sucursal'] !== '') {
+                    $message = "Producto '{$itemNumber}': la sucursal indicada no tiene un almacén principal.";
+                } elseif ($almacenesPrincipales->isEmpty()) {
+                    $message = "Producto '{$itemNumber}': no existe un almacén principal para registrar la existencia inicial.";
+                } else {
+                    $message = "Producto '{$itemNumber}': indica id_sucursal para asignar la existencia inicial cuando hay almacenes principales en varias sucursales.";
+                }
+
                 throw new CatalogImportException(
-                    "Producto '{$itemNumber}': debe existir exactamente un almacén principal para registrar la existencia inicial."
+                    $message
                 );
             }
 
@@ -167,6 +180,7 @@ class ProductosImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
         return [
             'item_number' => ['required', 'string', 'max:20'],
             'item_name' => ['required', 'string', 'max:100'],
+            'id_sucursal' => ['nullable', 'integer', 'exists:sucursales,id'],
             'familia' => ['required', 'string', 'max:50'],
             'sub_familia' => ['required', 'string', 'max:50'],
             'unidad_medida' => ['required', 'string', 'max:50'],
