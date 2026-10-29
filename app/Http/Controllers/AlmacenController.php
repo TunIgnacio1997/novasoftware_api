@@ -98,6 +98,7 @@ class AlmacenController extends Controller
                 ]);
             }
 
+
             $willBePrincipal = (bool) ($data['principal'] ?? $current->principal);
             if ($willBePrincipal) {
                 $this->ensureNoOtherPrincipal($targetSucursalId, (int) $current->getKey());
